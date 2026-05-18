@@ -54,7 +54,7 @@ class _TelaCadastroFuncionarioState extends State<TelaCadastroFuncionario> {
  
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/usuarios-empresa?empresa=${Uri.encodeQueryComponent(widget.empresa['EmpresaId']?.toString() ?? '')}'),
+        Uri.parse('http://10.0.2.2:8000/usuarios-empresa?empresa=${Uri.encodeQueryComponent(widget.empresa['EmpresaId']?.toString() ?? '')}'),
         headers: {'Content-Type': 'application/json'},
       );
  
@@ -107,7 +107,7 @@ class _TelaCadastroFuncionarioState extends State<TelaCadastroFuncionario> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/usuarios-empresa'),
+        Uri.parse('http://10.0.2.2:8000/usuarios-empresa'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nome': _nomeController.text.trim(),

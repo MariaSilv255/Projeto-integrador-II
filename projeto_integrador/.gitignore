@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Arquivos de ambiente (Segurança: nunca envie suas chaves de API!)
+.env*
+
+# Backend Python Virtual Environment
+/projeto_integrador_backend/venv/

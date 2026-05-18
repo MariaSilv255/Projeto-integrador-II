@@ -45,7 +45,7 @@ class _TelaImplantacaoState extends State<TelaImplantacao> {
 
     try {
       final response = await http.get(
-        Uri.parse('http://localhost:3000/empresas'),
+        Uri.parse('http://10.0.2.2:8000/empresas'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -235,8 +235,8 @@ class _TelaImplantacaoState extends State<TelaImplantacao> {
                                           if (confirmar == true) {
                                             try {
                                               final uri = bloqueada
-                                                  ? Uri.parse('http://localhost:3000/empresas/desbloquear')
-                                                  : Uri.parse('http://localhost:3000/empresas/bloquear');
+                                                  ? Uri.parse('http://10.0.2.2:8000/empresas/desbloquear')
+                                                  : Uri.parse('http://10.0.2.2:8000/empresas/bloquear');
 
                                               final response = await http.post(
                                                 uri,

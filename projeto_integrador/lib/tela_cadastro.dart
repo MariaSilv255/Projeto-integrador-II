@@ -49,7 +49,7 @@ class _TelaCadastroState extends State<TelaCadastro> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/register'),
+        Uri.parse('http://10.0.2.2:8000/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nome': _nomeController.text.trim(),
