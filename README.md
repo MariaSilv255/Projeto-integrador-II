@@ -31,15 +31,65 @@ Desenvolver a interface e funcionalidades iniciais de um aplicativo mobile utili
 6. Controla ou monitora a irrigação
 
 ## Tecnologias Utilizadas
-Flutter
-Dart
-Android Studio
-Figma
-Git
+- Flutter
+- Dart
+- Python
+- FastAPI
+- Android Studio
+- Figma
+- Git
+
+## Como Executar o Projeto
+
+### Backend (FastAPI)
+
+1.  **Navegue até a pasta do backend:**
+    ```sh
+    cd projeto_integrador_backend
+    ```
+
+2.  **Crie e ative um ambiente virtual:**
+    ```sh
+    # Criar o ambiente virtual
+    python3 -m venv venv
+    # Ativar no macOS/Linux
+    source venv/bin/activate
+    # Ativar no Windows
+    .\\venv\\Scripts\\activate
+    ```
+
+3.  **Instale as dependências:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+4.  **Execute o servidor:**
+    ```sh
+    uvicorn main:app --reload
+    ```
+    O servidor estará disponível em `http://127.0.0.1:8000`.
+
+### Frontend (Flutter)
+
+1.  **Navegue até a pasta do frontend:**
+    ```sh
+    cd projeto_integrador
+    ```
+
+2.  **Instale as dependências:**
+    ```sh
+    flutter pub get
+    ```
+
+3.  **Execute a aplicação:**
+    Certifique-se de que o servidor backend esteja rodando e que um emulador/dispositivo esteja conectado.
+    ```sh
+    flutter run
+    ```
 
 ## Melhorias Futuras
 - Integração com sensores reais de umidade do solo
-- Conexão com backend (API)
+- Finalizar integração e lógica do backend (API)
 - Notificações automáticas para o usuário
 - Dashboard mais detalhado
 
@@ -64,11 +114,3 @@ Commits frequentes documentando o progresso
 - Maria  
 - Raul  
 - Rebeca
-
-
-
-
-
-
-
-
