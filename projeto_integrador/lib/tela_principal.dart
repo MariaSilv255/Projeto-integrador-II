@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:projeto_integrador/dashBoard.dart';
 
 class TelaPrincipal extends StatefulWidget {
   const TelaPrincipal({super.key});
@@ -11,7 +12,7 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
   int _indiceAtual = 0;
 
   final List<Widget> _telas = [
-    const Center(child: Text('Visão Geral do Dashboard')),
+    const DashBoard(),
     const Center(child: Text('Gerenciamento de Plantação')),
     const Center(child: Text('Configurações do Sistema')),
   ];

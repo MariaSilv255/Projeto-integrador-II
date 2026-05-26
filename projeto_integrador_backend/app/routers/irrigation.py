@@ -1,9 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from app.schemas import CadastroIrrigacao
 from app.database import db_cadastros_irrigacao
+from app.mqtt_client import get_latest_data
 from typing import List
 
 router = APIRouter()
+
+@router.get("/irrigacao/dados-tempo-real", tags=["Irrigação"])
+async def obter_dados_tempo_real():
+    data = get_latest_data()
+    if not data:
+        raise HTTPException(status_code=404, detail="Nenhum dado recebido do broker MQTT ainda")
+    return data
 
 @router.post("/irrigacao", tags=["Irrigação"])
 async def criar_cadastro_irrigacao(cadastro: CadastroIrrigacao):
