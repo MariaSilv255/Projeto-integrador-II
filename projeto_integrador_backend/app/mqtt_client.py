@@ -12,10 +12,7 @@ MQTT_PORT = int(os.getenv("MQTT_PORT", 8883))
 MQTT_USERNAME = os.getenv("MQTT_USERNAME")
 MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 MQTT_CLIENT_ID = os.getenv("MQTT_CLIENT_ID", "BackendClient")
-MQTT_TOPIC = os.getenv("MQTT_TOPIC", "Equipe3/sensores")
-
-MQTT_CLIENT_CERT = os.getenv("MQTT_CLIENT_CERT")
-MQTT_CLIENT_KEY = os.getenv("MQTT_CLIENT_KEY")
+MQTT_TOPIC = os.getenv("MQTT_TOPIC", "Equipe3/#")
 
 # Global storage for the latest sensor data per topic
 latest_sensor_data = {}
@@ -25,7 +22,6 @@ def on_connect(client, userdata, flags, rc, properties=None):
         print(f"Connected to MQTT Broker! Subscribing to wildcard {MQTT_TOPIC}...")
         client.subscribe(MQTT_TOPIC)
     else:
-        # Paho will automatically retry even if rc != 0
         print(f"Connection failed with result code {rc}. Paho will retry automatically.")
 
 def on_disconnect(client, userdata, rc, properties=None):
@@ -38,7 +34,6 @@ def on_message(client, userdata, msg):
     global latest_sensor_data
     try:
         payload = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
-        # print(f"Received message from topic `{msg.topic}`") # Too verbose for production, keep it light
         
         # Try to parse as JSON, otherwise store as raw string
         try:
@@ -58,28 +53,12 @@ client.on_message = on_message
 # Configure automatic reconnection with exponential backoff (1s to 120s)
 client.reconnect_delay_set(min_delay=1, max_delay=120)
 
-# Configure MQTTS (SSL/TLS)
-if MQTT_CLIENT_CERT and MQTT_CLIENT_KEY:
-    # Use certificates for authentication
-    client.tls_set(
-        certfile=MQTT_CLIENT_CERT,
-        keyfile=MQTT_CLIENT_KEY,
-        cert_reqs=ssl.CERT_NONE,
-        tls_version=ssl.PROTOCOL_TLSv1_2
-    )
-    client.tls_insecure_set(True)
-else:
-    # Fallback to insecure connection without certs
-    client.tls_set(cert_reqs=ssl.CERT_NONE)
-    client.tls_insecure_set(True)
-
 if MQTT_USERNAME:
     client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
 def start_mqtt():
     try:
-        # connect_async is non-blocking and handles initial connection in the background
-        print(f"Connecting to MQTT Broker {MQTT_SERVER}:{MQTT_PORT} (Async)...")
+        print(f"Connecting to MQTT Broker {MQTT_SERVER}:{MQTT_PORT} (Standard)...")
         client.connect_async(MQTT_SERVER, MQTT_PORT, 60)
         client.loop_start()
     except Exception as e:
