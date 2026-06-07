@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class DashBoard extends StatefulWidget {
@@ -31,7 +32,8 @@ class _DashBoardState extends State<DashBoard> {
 
   Future<void> _buscarDados() async {
     try {
-      final response = await http.get(Uri.parse('http://10.0.2.2:8000/irrigacao/dados-tempo-real'));
+      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+      final response = await http.get(Uri.parse('http://$host:8000/irrigacao/dados-tempo-real'));
       if (response.statusCode == 200) {
         setState(() {
           _dadosMqtt = jsonDecode(response.body);

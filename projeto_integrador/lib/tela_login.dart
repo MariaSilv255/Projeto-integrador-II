@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:projeto_integrador/tela_principal.dart';
 import 'package:projeto_integrador/tela_recuperar_senha.dart';
@@ -220,8 +221,9 @@ class _TelaLoginState extends State<TelaLogin> {
       _isLoading = true;
     });
     try {
+      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/login'),
+        Uri.parse('http://$host:8000/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nome_usuario': _nomeUsuarioController.text.trim(),
