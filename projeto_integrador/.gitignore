@@ -44,3 +44,6 @@ app.*.map.json
 
 # Arquivos de ambiente (Segurança: nunca envie suas chaves de API!)
 .env*
+
+# Backend Python Virtual Environment
+/projeto_integrador_backend/.venv/

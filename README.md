@@ -1,6 +1,6 @@
 ## Sistema de Irrigação Inteligente
 
-## Equipe: AgroTech Solutions
+## Equipe: AgroTech Solutions (Soluções AgroTech).
 
 ## Descrição
 Este projeto tem como objetivo desenvolver uma aplicação mobile para automação de sistemas de irrigação, utilizando dados do solo como umidade para auxiliar na tomada de decisões.
@@ -9,46 +9,73 @@ A aplicação permite monitorar as condições do solo e automatizar a irrigaç�
 ## Objetivo
 Desenvolver a interface e funcionalidades iniciais de um aplicativo mobile utilizando Flutter, com base nos protótipos criados no Figma, como parte do Projeto Integrador.
 
- Protótipo (Figma)
- Acesse: https://www.figma.com/design/YUP2HoXGPRbjeQiaYKgmeb/INICIAL?node-id=0-1&t=p2Ltnb1lcIliyNCq-1
+### Protótipo (Figma)
+Acesse: [Figma Link](https://www.figma.com/design/YUP2HoXGPRbjeQiaYKgmeb/INICIAL?node-id=0-1&t=p2Ltnb1lcIliyNCq-1)
 
-
-## Telas do Protótipo:
-
- ### Funcionalidades
- - Monitoramento da umidade do solo
- - Controle automático e manual de irrigação
- - Tela de login e autenticação
- - Visualização de dados em tempo real
- - Interface intuitiva para o usuário
-
-##  Fluxo da Aplicação
-1. O usuário acessa o aplicativo
-2. Realiza login com email e senha
-3. O administrador cadastra a empresa **(Funcionalidade removida do projeto)**
-4. O usuário acessa a tela principal
-5. Visualiza os dados do solo
-6. Controla ou monitora a irrigação
+## Funcionalidades
+- Monitoramento de umidade do solo via MQTT
+- API REST para controle e autenticação
+- Sistema de login e cadastro de usuários/empresas
+- Visualização de dados de sensores em tempo real
+- Controle manual e automático de irrigação
 
 ## Tecnologias Utilizadas
+- **Frontend:** Flutter / Dart
+- **Backend:** Python / FastAPI
+- **Protocolo:** MQTT (Paho-MQTT)
+- **Ferramentas:** Android Studio, VS Code, Figma, Git
 
-- Flutter
-- Dart
-- Android Studio
-- Figma
-- Git
-- Trello
-- Azure
+## Como Executar o Projeto
 
-## Melhorias Futuras
-- Integração com sensores reais de umidade do solo
-- Conexão com backend (API)
-- Notificações automáticas para o usuário
-- Dashboard mais detalhado
+### Backend (FastAPI)
 
-## Organização do Projeto
-Uso de Git para controle de versão
-Commits frequentes documentando o progresso
+1.  **Navegue até a pasta do backend:**
+    ```sh
+    cd projeto_integrador_backend
+    ```
+
+2.  **Crie e ative um ambiente virtual:**
+    ```sh
+    python3 -m venv .venv
+    source .venv/bin/activate  # Linux/macOS
+    .venv/Scripts/activate # Windows
+    ```
+
+3.  **Instale as dependências:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+4.  **Configure as variáveis de ambiente:**
+    Copie o arquivo de exemplo e preencha com as credenciais do seu broker MQTT:
+    ```sh
+    cp .env.example .env
+    ```
+
+5.  **Execute o servidor:**
+    ```sh
+    uvicorn app.main:app --reload
+    ```
+    O servidor estará disponível em `http://127.0.0.1:8000`.
+
+### Frontend (Flutter)
+
+1.  **Navegue até a pasta do frontend:**
+    ```sh
+    cd projeto_integrador
+    ```
+
+2.  **Instale as dependências:**
+    ```sh
+    flutter pub get
+    ```
+
+3.  **Execute a aplicação:**
+    Certifique-se de que o servidor backend esteja rodando e que um emulador/dispositivo esteja conectado.
+    ```sh
+    flutter run
+    ```
+
 
 ## Print das telas
 <img width="682" height="421" alt="image" src="https://github.com/user-attachments/assets/cd78724a-f362-4042-ab7d-b63848bb6a7d" />
@@ -67,31 +94,3 @@ Commits frequentes documentando o progresso
 - Maria  
 - Raul  
 - Rebeca
-
-# Documentação
-
-## Estrutura do Projeto
-
-lib/
-├── core/
-│   ├── auth/                 # Lógica de auth que o app inteiro usa
-│   │   ├── auth_provider.dart # O "Estado" do usuário (Logado/Deslogado)
-│   │   └── user_entity.dart   # Modelo do usuário logado
-│   └── router/               # Configuração de rotas (GoRouter é recomendado)
-├── features/
-│   ├── auth/                 # Tudo sobre o Login
-│   │   ├── data/             # Chamada de API de login, persistência de Token
-│   │   ├── presentation/     # Telas de Login, Recuperar Senha, etc.
-│   │   └── domain/           # Regras de negócio do login
-│   ├── home/                 # Tela principal após o login
-│   └── splash/               # Tela de carregamento inicial
-├── main.dart
-└── app.dart                  # Onde a mágica da decisão acontece
-
-
-
-
-
-
-
-

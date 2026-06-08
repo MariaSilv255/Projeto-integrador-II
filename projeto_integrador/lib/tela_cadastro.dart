@@ -12,7 +12,7 @@ class TelaCadastro extends StatefulWidget {
 class _TelaCadastroState extends State<TelaCadastro> {
   final _formKey = GlobalKey<FormState>();
   
-  final _nomeController = TextEditingController();
+  final _nomeUsuarioController = TextEditingController();
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();
   final _confirmSenhaController = TextEditingController();
@@ -24,7 +24,7 @@ class _TelaCadastroState extends State<TelaCadastro> {
   @override
   void initState() {
     super.initState();
-    _nomeController.addListener(_onTextChanged);
+    _nomeUsuarioController.addListener(_onTextChanged);
     _emailController.addListener(_onTextChanged);
     _senhaController.addListener(_onTextChanged);
     _confirmSenhaController.addListener(_onTextChanged);
@@ -49,10 +49,10 @@ class _TelaCadastroState extends State<TelaCadastro> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://localhost:3000/register'),
+        Uri.parse('http://10.0.2.2:8000/registrar'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'nome': _nomeController.text.trim(),
+          'nome_usuario': _nomeUsuarioController.text.trim(),
           'email': _emailController.text.trim(),
           'senha': _senhaController.text,
         }),
@@ -60,14 +60,14 @@ class _TelaCadastroState extends State<TelaCadastro> {
 
       if (!mounted) return;
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200) { // Changed from 201 to 200 to match the backend
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cadastro realizado com sucesso!')), 
         );
         Navigator.pop(context);
-      } else if (response.statusCode == 409) {
+      } else if (response.statusCode == 400) { // Changed from 409 to 400
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Email já cadastrado.')), 
+          const SnackBar(content: Text('Nome de usuário ou email já cadastrado.')), 
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -90,11 +90,11 @@ class _TelaCadastroState extends State<TelaCadastro> {
 
   @override
   void dispose() {
-    _nomeController.removeListener(_onTextChanged);
+    _nomeUsuarioController.removeListener(_onTextChanged);
     _emailController.removeListener(_onTextChanged);
     _senhaController.removeListener(_onTextChanged);
     _confirmSenhaController.removeListener(_onTextChanged);
-    _nomeController.dispose();
+    _nomeUsuarioController.dispose();
     _emailController.dispose();
     _senhaController.dispose();
     _confirmSenhaController.dispose();
@@ -170,16 +170,16 @@ class _TelaCadastroState extends State<TelaCadastro> {
                     ),
                     const SizedBox(height: 28),
                     TextFormField(
-                      controller: _nomeController,
+                      controller: _nomeUsuarioController,
                       textCapitalization: TextCapitalization.words,
                       keyboardType: TextInputType.name,
                       decoration: decorationFor(
-                        hint: 'Nome completo',
-                        controller: _nomeController,
+                        hint: 'Nome de usuário',
+                        controller: _nomeUsuarioController,
                       ),
                       validator: (String? value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Informe seu nome completo';
+                          return 'Informe seu nome de usuário';
                         }
                         return null;
                       },
@@ -194,7 +194,7 @@ class _TelaCadastroState extends State<TelaCadastro> {
                       ),
                       validator: (String? value) {
                         final email = (value ?? '').trim();
-                        if (email.isEmpty) {
+                        if (.isEmpty) {
                           return 'Informe seu email';
                         }
                         if (!email.contains('@')) {
