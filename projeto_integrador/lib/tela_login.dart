@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:projeto_integrador/tela_principal.dart';
 import 'package:projeto_integrador/tela_recuperar_senha.dart';
-import 'package:projeto_integrador/tela_implantacao.dart';
 
 class TelaLogin extends StatefulWidget {
   const TelaLogin({super.key});
@@ -244,12 +243,24 @@ class _TelaLoginState extends State<TelaLogin> {
         );
         
       } else {
+        // Log descritivo no console para depuração
+        debugPrint('--- ERRO DE LOGIN ---');
+        debugPrint('Status Code: ${response.statusCode}');
+        debugPrint('Resposta: ${response.body}');
+        debugPrint('----------------------');
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Login falhou! Verifique suas credenciais.')),
         );
       }
     } catch (e) {
       if (!mounted) return;
+      
+      // Log de exceção no console
+      debugPrint('--- EXCEÇÃO NO LOGIN ---');
+      debugPrint('Erro: $e');
+      debugPrint('------------------------');
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Erro ao conectar ao servidor.')),
       );
