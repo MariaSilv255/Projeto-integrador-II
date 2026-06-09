@@ -2,6 +2,11 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 from app.routers import auth, irrigation
 from app.mqtt_client import start_mqtt, stop_mqtt
+from app.database import engine
+from app import models
+
+# Cria as tabelas no banco de dados
+models.Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

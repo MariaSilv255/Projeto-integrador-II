@@ -1,14 +1,20 @@
-from app.schemas import Usuario, DadosUsuario
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
 
-# Simulação de um banco de dados em memória com um usuário padrão
+SQLALCHEMY_DATABASE_URL = "sqlite:///./sql_app.db"
 
-db_usuarios = {
-    "testuser": Usuario(id=1, nome_usuario="testuser", senha="password")
-}
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-db_dados_usuarios = {
-    1: DadosUsuario(id=1, email="test@user.com", fk_id_usuario=1)
-}
+Base = declarative_base()
 
-db_brokers = {}
-db_cadastros_irrigacao = {}
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

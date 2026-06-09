@@ -233,13 +233,15 @@ class _TelaLoginState extends State<TelaLogin> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        final Map<String, dynamic> userData = jsonDecode(response.body);
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Tudo certo! Entrando...')),
         );
 
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => const TelaPrincipal()),
+          MaterialPageRoute(builder: (context) => TelaPrincipal(usuario: userData)),
         );
         
       } else {

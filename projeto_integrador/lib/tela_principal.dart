@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:projeto_integrador/dashBoard.dart';
+import 'package:projeto_integrador/tela_implantacao.dart';
 
 class TelaPrincipal extends StatefulWidget {
-  const TelaPrincipal({super.key});
+  final Map<String, dynamic> usuario;
+  const TelaPrincipal({super.key, required this.usuario});
 
   @override
   State<TelaPrincipal> createState() => _TelaPrincipalState();
@@ -11,11 +13,17 @@ class TelaPrincipal extends StatefulWidget {
 class _TelaPrincipalState extends State<TelaPrincipal> {
   int _indiceAtual = 0;
 
-  final List<Widget> _telas = [
-    const DashBoard(),
-    const Center(child: Text('Gerenciamento de Plantação')),
-    const Center(child: Text('Configurações do Sistema')),
-  ];
+  late final List<Widget> _telas;
+
+  @override
+  void initState() {
+    super.initState();
+    _telas = [
+      const DashBoard(),
+      const Center(child: Text('Gerenciamento de Plantação')),
+      const Center(child: Text('Configurações do Sistema')),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {

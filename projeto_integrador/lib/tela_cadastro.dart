@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class TelaCadastro extends StatefulWidget {
@@ -48,8 +49,9 @@ class _TelaCadastroState extends State<TelaCadastro> {
     });
 
     try {
+      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final response = await http.post(
-        Uri.parse('http://10.0.2.2:8000/registrar'),
+        Uri.parse('http://$host:8000/registrar'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'nome_usuario': _nomeUsuarioController.text.trim(),
@@ -60,12 +62,12 @@ class _TelaCadastroState extends State<TelaCadastro> {
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) { // Changed from 201 to 200 to match the backend
+      if (response.statusCode == 200 || response.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cadastro realizado com sucesso!')), 
         );
         Navigator.pop(context);
-      } else if (response.statusCode == 400) { // Changed from 409 to 400
+      } else if (response.statusCode == 400) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Nome de usuário ou email já cadastrado.')), 
         );
@@ -194,7 +196,7 @@ class _TelaCadastroState extends State<TelaCadastro> {
                       ),
                       validator: (String? value) {
                         final email = (value ?? '').trim();
-                        if (.isEmpty) {
+                        if (email.isEmpty) {
                           return 'Informe seu email';
                         }
                         if (!email.contains('@')) {
