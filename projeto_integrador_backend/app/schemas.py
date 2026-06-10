@@ -34,7 +34,24 @@ class CadastroIrrigacao(BaseModel):
     id: Optional[int] = None
     fk_id_usuario: int
     descricao: str
+    topico: Optional[str] = "Equipe3/sensores" # Valor padrão ou fornecido pelo usuário
     fk_id_broker: int
+
+    class Config:
+        from_attributes = True
+
+class AgendamentoBase(BaseModel):
+    fk_id_irrigacao: int
+    atuador: str
+    valor: int
+    horario: str
+    dias_semana: str
+
+class AgendamentoCreate(AgendamentoBase):
+    pass
+
+class Agendamento(AgendamentoBase):
+    id: int
 
     class Config:
         from_attributes = True

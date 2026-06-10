@@ -16,11 +16,13 @@ class _DashBoardState extends State<DashBoard> {
   bool _isLoading = true;
   Timer? _timer;
 
+  static const Color _primaryGreen = Color(0xFF2F6B4F);
+  static const Color _backgroundGrey = Color(0xFFF8FAFC);
+
   @override
   void initState() {
     super.initState();
     _buscarDados();
-    // Inicia polling a cada 5 segundos
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) => _buscarDados());
   }
 
@@ -35,130 +37,156 @@ class _DashBoardState extends State<DashBoard> {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final response = await http.get(Uri.parse('http://$host:8000/irrigacao/dados-tempo-real'));
       if (response.statusCode == 200) {
-        setState(() {
-          _dadosMqtt = jsonDecode(response.body);
-          _isLoading = false;
-        });
-      } else {
-        // Trata erro (ex: 404 quando não há dados)
         if (mounted) {
           setState(() {
+            _dadosMqtt = jsonDecode(response.body);
             _isLoading = false;
           });
         }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint('Erro ao buscar dados MQTT: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _enviarComando(String atuador, int valor) async {
+    try {
+      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
+      const String topicoComando = 'Equipe3/atuadores';
+      
+      final response = await http.post(
+        Uri.parse('http://$host:8000/irrigacao/comando'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'topico': topicoComando,
+          'comando': {atuador: valor},
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Comando enviado para $atuador'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: _primaryGreen,
+          ),
+        );
+        // Busca os dados imediatamente após o comando para refletir a mudança
+        await _buscarDados();
       }
+    } catch (e) {
+      debugPrint('Erro: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading && _dadosMqtt.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_dadosMqtt.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.cloud_off, size: 64, color: Colors.grey),
-            const SizedBox(height: 16),
-            const Text(
-              'Aguardando dados do broker...',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: _buscarDados,
-              child: const Text('Tentar novamente'),
-            ),
-          ],
-        ),
-      );
+      return const Center(child: CircularProgressIndicator(color: _primaryGreen));
     }
 
     final sensores = _dadosMqtt['Equipe3/sensores'] ?? {};
     final atuadores = _dadosMqtt['Equipe3/atuadores'] ?? {};
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSeccaoTitulo('Sensores em Tempo Real'),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(child: _buildCardDados('Temperatura', '${sensores['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange)),
-              const SizedBox(width: 10),
-              Expanded(child: _buildCardDados('Umid. Solo', '${sensores['umiSolo'] ?? '--'}%', Icons.water_drop, Colors.blue)),
-            ],
-          ),
-          const SizedBox(height: 10),
-          _buildCardDados('Umidade Ambiente', '${sensores['umiAmbiente'] ?? '--'}%', Icons.cloud, Colors.lightBlue),
-          
-          const SizedBox(height: 24),
-          _buildSeccaoTitulo('Status dos Atuadores'),
-          const SizedBox(height: 10),
-          _buildCardStatus('Solenoide', atuadores['solenoide'] == 1, Icons.water_drop),
-          const SizedBox(height: 10),
-          _buildCardStatus('Módulo Relé (Bomba)', atuadores['moduloRele'] == 1, Icons.power),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSeccaoTitulo(String titulo) {
-    return Text(
-      titulo,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2F6B4F)),
-    );
-  }
-
-  Widget _buildCardDados(String label, String valor, IconData icone, Color cor) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
+    return Scaffold(
+      backgroundColor: _backgroundGrey,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icone, color: cor, size: 30),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+            const Text(
+              'Status Geral',
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+            ),
             const SizedBox(height: 4),
-            Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text(
+              'Acompanhe os sensores em tempo real',
+              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            ),
+            const SizedBox(height: 24),
+            
+            // Grid de Sensores
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 1.1,
+              children: [
+                _buildSensorCard('Temperatura', '${sensores['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange),
+                _buildSensorCard('Umidade Solo', '${sensores['umiSolo'] ?? '--'}%', Icons.water_drop, Colors.blue),
+                _buildSensorCard('Umid. Ambiente', '${sensores['umiAmbiente'] ?? '--'}%', Icons.cloud, Colors.cyan),
+                _buildSensorCard('Dispositivos', '${_dadosMqtt.length}', Icons.sensors, Colors.purple),
+              ],
+            ),
+            
+            const SizedBox(height: 32),
+            const Text(
+              'Controle de Atuadores',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            ),
+            const SizedBox(height: 16),
+            
+            _buildAtuadorCard('Solenoide de Irrigação', atuadores['solenoide'] == 1, Icons.waves, (v) => _enviarComando('solenoide', v ? 1 : 0)),
+            const SizedBox(height: 12),
+            _buildAtuadorCard('Bomba Hidráulica', atuadores['moduloRele'] == 1, Icons.settings_input_component, (v) => _enviarComando('moduloRele', v ? 1 : 0)),
+            
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCardStatus(String label, bool ativo, IconData icone) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(icone, color: ativo ? Colors.green : Colors.red),
-        title: Text(label),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: ativo ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
+  Widget _buildSensorCard(String label, String valor, IconData icone, Color cor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: cor.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(icone, color: cor, size: 24),
           ),
-          child: Text(
-            ativo ? 'ATIVO' : 'DESATIVADO',
-            style: TextStyle(color: ativo ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
-          ),
+          const SizedBox(height: 12),
+          Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAtuadorCard(String label, bool ativo, IconData icone, Function(bool) onChanged) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: SwitchListTile(
+        secondary: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: (ativo ? Colors.green : Colors.grey).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icone, color: ativo ? Colors.green : Colors.grey, size: 20),
         ),
+        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        subtitle: Text(ativo ? 'Operando' : 'Inativo', style: TextStyle(color: ativo ? Colors.green : Colors.grey, fontSize: 12)),
+        value: ativo,
+        onChanged: onChanged,
+        activeColor: Colors.green,
       ),
     );
   }

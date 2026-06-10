@@ -15,7 +15,10 @@ class MainApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
-      home: const TelaLogin(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const TelaLogin(),
+      },
     );
   }
 }

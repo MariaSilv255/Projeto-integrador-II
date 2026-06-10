@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:projeto_integrador/dashBoard.dart';
-import 'package:projeto_integrador/tela_implantacao.dart';
+import 'package:projeto_integrador/tela_plantacao.dart';
+import 'package:projeto_integrador/tela_configuracoes.dart';
 
 class TelaPrincipal extends StatefulWidget {
   final Map<String, dynamic> usuario;
@@ -20,18 +21,33 @@ class _TelaPrincipalState extends State<TelaPrincipal> {
     super.initState();
     _telas = [
       const DashBoard(),
-      const Center(child: Text('Gerenciamento de Plantação')),
-      const Center(child: Text('Configurações do Sistema')),
+      TelaPlantacao(usuario: widget.usuario),
+      const TelaConfiguracoes(),
     ];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Projeto Integrador - Tela Principal')),
+      appBar: AppBar(
+        title: const Text('Projeto Integrador'),
+        backgroundColor: const Color(0xFF2F6B4F),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              Navigator.pushReplacementNamed(context, '/');
+            },
+            tooltip: 'Sair',
+          ),
+        ],
+      ),
       body: _telas[_indiceAtual],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _indiceAtual,
+        selectedItemColor: const Color(0xFF2F6B4F),
+        unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'Dashboard'),

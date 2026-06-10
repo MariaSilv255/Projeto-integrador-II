@@ -28,8 +28,22 @@ class CadastroIrrigacao(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     descricao = Column(String)
+    topico = Column(String) # Novo campo para o tópico MQTT do dispositivo
     fk_id_usuario = Column(Integer, ForeignKey("usuarios.id"))
     fk_id_broker = Column(Integer, ForeignKey("brokers.id"))
 
     usuario = relationship("Usuario", back_populates="cadastros_irrigacao")
     broker = relationship("Broker", back_populates="cadastros_irrigacao")
+    agendamentos = relationship("Agendamento", back_populates="irrigacao")
+
+class Agendamento(Base):
+    __tablename__ = "agendamentos"
+
+    id = Column(Integer, primary_key=True, index=True)
+    fk_id_irrigacao = Column(Integer, ForeignKey("cadastros_irrigacao.id"))
+    atuador = Column(String) # 'solenoide' ou 'moduloRele'
+    valor = Column(Integer)  # 1 (ligar) ou 0 (desligar)
+    horario = Column(String) # 'HH:MM'
+    dias_semana = Column(String) # '0,1,2,3,4,5,6'
+
+    irrigacao = relationship("CadastroIrrigacao", back_populates="agendamentos")

@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:projeto_integrador/tela_principal.dart';
 import 'package:projeto_integrador/tela_recuperar_senha.dart';
+import 'package:projeto_integrador/tela_cadastro.dart';
 
 class TelaLogin extends StatefulWidget {
   const TelaLogin({super.key});
@@ -20,6 +21,7 @@ class _TelaLoginState extends State<TelaLogin> {
   bool _isLoading = false;
 
   static const Color _primaryGreen = Color(0xFF2F6B4F);
+  static const Color _backgroundGrey = Color(0xFFF8FAFC);
 
   @override
   void initState() {
@@ -45,166 +47,119 @@ class _TelaLoginState extends State<TelaLogin> {
   @override
   Widget build(BuildContext context) {
     final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
     );
 
     return Scaffold(
+      backgroundColor: _backgroundGrey,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 8),
+                    const Icon(Icons.eco, size: 60, color: _primaryGreen),
+                    const SizedBox(height: 16),
                     const Text(
                       'Bem-vindo(a)!',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF1E293B),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     const Text(
-                      'Faça login para gerenciar a\n sua irrigação',
+                      'Faça login para gerenciar a sua irrigação inteligente',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        height: 1.25,
-                        color: Color(0xFF475569),
+                        height: 1.4,
+                        color: Color(0xFF64748B),
                       ),
                     ),
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 32),
                     TextFormField(
                       controller: _nomeUsuarioController,
-                      keyboardType: TextInputType.text,
                       decoration: InputDecoration(
-                        hintText: 'Nome de usuário',
+                        labelText: 'Nome de usuário',
+                        labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
                         filled: true,
                         fillColor: Colors.white,
                         enabledBorder: inputBorder,
                         focusedBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: _primaryGreen, width: 1.5),
+                          borderSide: const BorderSide(color: _primaryGreen, width: 2),
                         ),
                         errorBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: Colors.red),
+                          borderSide: const BorderSide(color: Colors.redAccent),
                         ),
-                        focusedErrorBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: Colors.red, width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        suffixIcon: _nomeUsuarioController.text.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Limpar',
-                                onPressed: () => _nomeUsuarioController.clear(),
-                                icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
-                              ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
-                      validator: (String? value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Informe seu nome de usuário';
-                        }
-                        return null;
-                      },
+                      validator: (value) => (value == null || value.trim().isEmpty) ? 'Informe seu usuário' : null,
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _senhaController,
                       obscureText: true,
                       decoration: InputDecoration(
-                        hintText: 'Senha',
+                        labelText: 'Senha',
+                        labelStyle: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
                         filled: true,
                         fillColor: Colors.white,
                         enabledBorder: inputBorder,
                         focusedBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: _primaryGreen, width: 1.5),
+                          borderSide: const BorderSide(color: _primaryGreen, width: 2),
                         ),
                         errorBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: Colors.red),
+                          borderSide: const BorderSide(color: Colors.redAccent),
                         ),
-                        focusedErrorBorder: inputBorder.copyWith(
-                          borderSide: const BorderSide(color: Colors.red, width: 1.5),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        suffixIcon: _senhaController.text.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Limpar',
-                                onPressed: () => _senhaController.clear(),
-                                icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
-                              ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                       ),
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Informe sua senha';
-                        }
-                        return null;
-                      },
+                      validator: (value) => (value == null || value.isEmpty) ? 'Informe sua senha' : null,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const TelaRecuperarSenha(),
-                            ),
-                          );
-                        },
-                        style: TextButton.styleFrom(
-                          foregroundColor: const Color(0xFF334155),
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                          textStyle: const TextStyle(fontSize: 12),
-                        ),
-                        child: const Text('Esqueceu a senha?'),
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TelaRecuperarSenha())),
+                        child: const Text('Esqueceu a senha?', style: TextStyle(fontSize: 13, color: Color(0xFF475569))),
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 20),
                     SizedBox(
-                      height: 48,
+                      height: 52,
                       child: ElevatedButton(
-                        onPressed: _isLoading
-                            ? null
-                            : () {
-                                if (_formKey.currentState!.validate()) {
-                                  _login();
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Preencha nome de usuário e senha.')),
-                                  );
-                                }
-                              },
+                        onPressed: _isLoading ? null : () { if (_formKey.currentState!.validate()) _login(); },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryGreen,
-                          disabledBackgroundColor: _primaryGreen.withValues(alpha: 0.6),
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
+                          elevation: 2,
+                          shadowColor: _primaryGreen.withOpacity(0.4),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Text(
-                                'Acessar',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Acessar Sistema', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 24),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Novo por aqui?', style: TextStyle(color: Color(0xFF64748B))),
+                        TextButton(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const TelaCadastro())),
+                          child: const Text('Crie sua conta', style: TextStyle(fontWeight: FontWeight.bold, color: _primaryGreen)),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -216,62 +171,26 @@ class _TelaLoginState extends State<TelaLogin> {
   }
 
   Future<void> _login() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final response = await http.post(
         Uri.parse('http://$host:8000/login'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'nome_usuario': _nomeUsuarioController.text.trim(),
-          'senha': _senhaController.text,
-        }),
+        body: jsonEncode({'nome_usuario': _nomeUsuarioController.text.trim(), 'senha': _senhaController.text}),
       );
 
       if (!mounted) return;
-
       if (response.statusCode == 200) {
-        final Map<String, dynamic> userData = jsonDecode(response.body);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tudo certo! Entrando...')),
-        );
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => TelaPrincipal(usuario: userData)),
-        );
-        
+        final userData = jsonDecode(response.body);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => TelaPrincipal(usuario: userData)));
       } else {
-        // Log descritivo no console para depuração
-        debugPrint('--- ERRO DE LOGIN ---');
-        debugPrint('Status Code: ${response.statusCode}');
-        debugPrint('Resposta: ${response.body}');
-        debugPrint('----------------------');
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Login falhou! Verifique suas credenciais.')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credenciais incorretas.')));
       }
     } catch (e) {
-      if (!mounted) return;
-      
-      // Log de exceção no console
-      debugPrint('--- EXCEÇÃO NO LOGIN ---');
-      debugPrint('Erro: $e');
-      debugPrint('------------------------');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao conectar ao servidor.')),
-      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erro de conexão.')));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 }

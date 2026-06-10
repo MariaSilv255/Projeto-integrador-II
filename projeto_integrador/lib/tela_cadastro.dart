@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'dart:io';
 
 class TelaCadastro extends StatefulWidget {
   const TelaCadastro({super.key});
@@ -21,6 +21,7 @@ class _TelaCadastroState extends State<TelaCadastro> {
   bool _isLoading = false;
 
   static const Color _primaryGreen = Color(0xFF2F6B4F);
+  static const Color _backgroundGrey = Color(0xFFF8FAFC);
 
   @override
   void initState() {
@@ -37,16 +38,9 @@ class _TelaCadastroState extends State<TelaCadastro> {
   }
 
   Future<void> _cadastrar() async {
-    if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, corrija os erros no formulário.')),
-      );
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
@@ -63,39 +57,20 @@ class _TelaCadastroState extends State<TelaCadastro> {
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Cadastro realizado com sucesso!')), 
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Conta criada com sucesso!')));
         Navigator.pop(context);
-      } else if (response.statusCode == 400) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nome de usuário ou email já cadastrado.')), 
-        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Falha ao realizar cadastro.')), 
-        );
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erro ao cadastrar. Tente outro usuário.')));
       }
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erro ao conectar ao servidor.')), 
-      );
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Erro de conexão.')));
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
   @override
   void dispose() {
-    _nomeUsuarioController.removeListener(_onTextChanged);
-    _emailController.removeListener(_onTextChanged);
-    _senhaController.removeListener(_onTextChanged);
-    _confirmSenhaController.removeListener(_onTextChanged);
     _nomeUsuarioController.dispose();
     _emailController.dispose();
     _senhaController.dispose();
@@ -106,190 +81,58 @@ class _TelaCadastroState extends State<TelaCadastro> {
   @override
   Widget build(BuildContext context) {
     final inputBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
-      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+      borderRadius: BorderRadius.circular(12),
+      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
     );
 
-    InputDecoration decorationFor({
-      required String hint,
-      required TextEditingController controller,
-    }) {
-      return InputDecoration(
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.white,
-        enabledBorder: inputBorder,
-        focusedBorder: inputBorder.copyWith(
-          borderSide: const BorderSide(color: _primaryGreen, width: 1.5),
-        ),
-        errorBorder: inputBorder.copyWith(
-          borderSide: const BorderSide(color: Colors.red),
-        ),
-        focusedErrorBorder: inputBorder.copyWith(
-          borderSide: const BorderSide(color: Colors.red, width: 1.5),
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        suffixIcon: controller.text.isEmpty
-            ? null
-            : IconButton(
-                tooltip: 'Limpar',
-                onPressed: controller.clear,
-                icon: const Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
-              ),
-      );
-    }
-
     return Scaffold(
+      backgroundColor: _backgroundGrey,
+      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0, foregroundColor: Color(0xFF1E293B)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 400),
               child: Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 8),
                     const Text(
-                      'Bem-vindo(a)!',
+                      'Criar Conta',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
                     const Text(
-                      'Crie sua conta para começar a\nusar o sistema',
+                      'Junte-se a nós para monitorar sua produção',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 1.25,
-                        color: Color(0xFF475569),
-                      ),
+                      style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
                     ),
-                    const SizedBox(height: 28),
-                    TextFormField(
-                      controller: _nomeUsuarioController,
-                      textCapitalization: TextCapitalization.words,
-                      keyboardType: TextInputType.name,
-                      decoration: decorationFor(
-                        hint: 'Nome de usuário',
-                        controller: _nomeUsuarioController,
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Informe seu nome de usuário';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: decorationFor(
-                        hint: 'Email',
-                        controller: _emailController,
-                      ),
-                      validator: (String? value) {
-                        final email = (value ?? '').trim();
-                        if (email.isEmpty) {
-                          return 'Informe seu email';
-                        }
-                        if (!email.contains('@')) {
-                          return 'Email inválido';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _senhaController,
-                      obscureText: true,
-                      decoration: decorationFor(
-                        hint: 'Senha',
-                        controller: _senhaController,
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Informe sua senha';
-                        }
-                        if (value.length < 6) {
-                          return 'A senha deve ter no mínimo 6 caracteres';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _confirmSenhaController,
-                      obscureText: true,
-                      decoration: decorationFor(
-                        hint: 'Confirmar senha',
-                        controller: _confirmSenhaController,
-                      ),
-                      validator: (String? value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Confirme sua senha';
-                        }
-                        if (value != _senhaController.text) {
-                          return 'As senhas não coincidem';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 32),
+                    _buildField('Usuário', _nomeUsuarioController, Icons.person_outline, inputBorder),
+                    const SizedBox(height: 16),
+                    _buildField('E-mail', _emailController, Icons.email_outlined, inputBorder, isEmail: true),
+                    const SizedBox(height: 16),
+                    _buildField('Senha', _senhaController, Icons.lock_outline, inputBorder, isPassword: true),
+                    const SizedBox(height: 16),
+                    _buildField('Confirmar Senha', _confirmSenhaController, Icons.lock_reset, inputBorder, isPassword: true, matchController: _senhaController),
+                    const SizedBox(height: 32),
                     SizedBox(
-                      height: 48,
+                      height: 52,
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _cadastrar,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _primaryGreen,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 2,
                         ),
                         child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Cadastrar',
-                                style: TextStyle(fontWeight: FontWeight.w600),
-                              ),
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                            : const Text('Cadastrar', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'Já tem conta?',
-                          style: TextStyle(fontSize: 12, color: _primaryGreen),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          style: TextButton.styleFrom(
-                            foregroundColor: _primaryGreen,
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                            textStyle: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          child: const Text('Entrar'),
-                        ),
-                      ],
                     ),
                   ],
                 ),
@@ -298,6 +141,29 @@ class _TelaCadastroState extends State<TelaCadastro> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildField(String label, TextEditingController controller, IconData icon, OutlineInputBorder border, {bool isPassword = false, bool isEmail = false, TextEditingController? matchController}) {
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20, color: Color(0xFF64748B)),
+        filled: true,
+        fillColor: Colors.white,
+        enabledBorder: border,
+        focusedBorder: border.copyWith(borderSide: const BorderSide(color: _primaryGreen, width: 2)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      ),
+      validator: (value) {
+        if (value == null || value.isEmpty) return 'Campo obrigatório';
+        if (isEmail && !value.contains('@')) return 'E-mail inválido';
+        if (isPassword && value.length < 6) return 'Mínimo 6 caracteres';
+        if (matchController != null && value != matchController.text) return 'As senhas não coincidem';
+        return null;
+      },
     );
   }
 }

@@ -9,8 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_login: ^6.0.0
+  flutter_login: ^5.1.0
   http: ^1.2.0
+  syncfusion_flutter_gauges: ^25.1.35
 
 dev_dependencies:
   flutter_test:

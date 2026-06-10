@@ -70,3 +70,17 @@ def stop_mqtt():
 
 def get_latest_data():
     return latest_sensor_data
+
+def publish_message(topic, message):
+    try:
+        # If message is a dict, convert to JSON string
+        if isinstance(message, dict):
+            payload = json.dumps(message)
+        else:
+            payload = str(message)
+        
+        result = client.publish(topic, payload)
+        return result.rc == mqtt.MQTT_ERR_SUCCESS
+    except Exception as e:
+        print(f"Error publishing to {topic}: {e}")
+        return False
