@@ -2,10 +2,6 @@
 .vscode/
 .idea/
 
-# Backend sensitive files
-projeto_integrador_backend/.env
-projeto_integrador_backend/certs/
-
 # Build artifacts
 build/
 *.log

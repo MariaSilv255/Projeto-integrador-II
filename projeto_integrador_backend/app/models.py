@@ -9,7 +9,8 @@ class Usuario(Base):
     nome_usuario = Column(String, unique=True, index=True)
     senha = Column(String)
 
-    cadastros_irrigacao = relationship("CadastroIrrigacao", back_populates="usuario")
+    cadastros_plantacoes = relationship("CadastroPlantacao", back_populates="usuario")
+    brokers = relationship("Broker", back_populates="usuario")
 
 class Broker(Base):
     __tablename__ = "brokers"
@@ -20,11 +21,13 @@ class Broker(Base):
     username = Column(String)
     chave_usuario = Column(String)
     host = Column(String)
+    fk_id_usuario = Column(Integer, ForeignKey("usuarios.id"))
 
-    cadastros_irrigacao = relationship("CadastroIrrigacao", back_populates="broker")
+    usuario = relationship("Usuario", back_populates="brokers")
+    cadastros_plantacoes = relationship("CadastroPlantacao", back_populates="broker")
 
-class CadastroIrrigacao(Base):
-    __tablename__ = "cadastros_irrigacao"
+class CadastroPlantacao(Base):
+    __tablename__ = "cadastros_plantacoes"
 
     id = Column(Integer, primary_key=True, index=True)
     descricao = Column(String)
@@ -33,5 +36,5 @@ class CadastroIrrigacao(Base):
     fk_id_usuario = Column(Integer, ForeignKey("usuarios.id"))
     fk_id_broker = Column(Integer, ForeignKey("brokers.id"))
 
-    usuario = relationship("Usuario", back_populates="cadastros_irrigacao")
-    broker = relationship("Broker", back_populates="cadastros_irrigacao")
+    usuario = relationship("Usuario", back_populates="cadastros_plantacoes")
+    broker = relationship("Broker", back_populates="cadastros_plantacoes")

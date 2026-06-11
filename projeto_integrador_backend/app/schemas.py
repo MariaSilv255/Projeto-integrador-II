@@ -24,15 +24,16 @@ class Broker(BaseModel):
     username: str
     chave_usuario: str
     host: str
+    fk_id_usuario: int
 
     class Config:
         from_attributes = True
 
-class CadastroIrrigacao(BaseModel):
+class CadastroPlantacao(BaseModel):
     id: Optional[int] = None
     fk_id_usuario: int
     descricao: str
-    topico: Optional[str] = "Equipe3/sensores"
+    topico: Optional[str] = "Equipe3/plantacoes/default"
     device_id: Optional[str] = None
     fk_id_broker: int
 

@@ -6,7 +6,8 @@ import 'dart:async';
 
 class TelaDetalhesPlantacao extends StatefulWidget {
   final Map<String, dynamic> plantacao;
-  const TelaDetalhesPlantacao({super.key, required this.plantacao});
+  final Map<String, dynamic> usuario;
+  const TelaDetalhesPlantacao({super.key, required this.plantacao, required this.usuario});
 
   @override
   State<TelaDetalhesPlantacao> createState() => _TelaDetalhesPlantacaoState();
@@ -14,15 +15,17 @@ class TelaDetalhesPlantacao extends StatefulWidget {
 
 class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
   static const Color _primaryGreen = Color(0xFF2F6B4F);
-  List<dynamic> _agendamentos = [];
-  Map<String, dynamic> _dadosAtuais = {};
+  final Map<String, dynamic> _dadosAtuais = {};
+  final Map<String, dynamic> _statusAtuadores = {};
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _carregarTudo();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _buscarDadosMQTT());
+    _buscarDadosMQTT();
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _buscarDadosMQTT();
+    });
   }
 
   @override
@@ -31,20 +34,37 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     super.dispose();
   }
 
-  Future<void> _carregarTudo() async {
-    await _buscarDadosMQTT();
-    await _carregarAgendamentos();
-  }
-
   Future<void> _buscarDadosMQTT() async {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
-      final response = await http.get(Uri.parse('http://$host:8000/irrigacao/dados-tempo-real'));
+      final userId = widget.usuario['id'];
+      final response = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
       if (response.statusCode == 200) {
-        final todosDados = jsonDecode(response.body);
+        final Map<String, dynamic> todosDados = jsonDecode(response.body);
         if (mounted) {
           setState(() {
-            _dadosAtuais = todosDados[widget.plantacao['topico']] ?? {};
+            final String baseTopic = (widget.plantacao['topico'] ?? '').toString().toLowerCase();
+            
+            _dadosAtuais.clear();
+            _statusAtuadores.clear();
+            String lastSensorName = 'Desconhecido';
+
+            todosDados.forEach((key, payload) {
+              final normalizedKey = key.toLowerCase();
+              if (payload is Map) {
+                if (normalizedKey == baseTopic || normalizedKey.startsWith('$baseTopic/')) {
+                  if (normalizedKey.contains('/sensores/')) {
+                    _dadosAtuais.addAll(Map<String, dynamic>.from(payload));
+                    lastSensorName = key.split('/').last;
+                  } else if (normalizedKey.contains('/atuadores/')) {
+                    _statusAtuadores.addAll(Map<String, dynamic>.from(payload));
+                  } else {
+                    _dadosAtuais.addAll(Map<String, dynamic>.from(payload));
+                  }
+                }
+              }
+            });
+            _dadosAtuais['nome_sensor_UI'] = lastSensorName;
           });
         }
       }
@@ -53,124 +73,73 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     }
   }
 
-  Future<void> _carregarAgendamentos() async {
+  Future<void> _enviarComando(String atuador, int valor) async {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
-      final response = await http.get(Uri.parse('http://$host:8000/agendamentos/irrigacao/${widget.plantacao['id']}'));
-      if (response.statusCode == 200) {
-        if (mounted) {
-          setState(() {
-            _agendamentos = jsonDecode(response.body);
-          });
-        }
-      }
-    } catch (e) {
-      debugPrint('Erro Agendamentos: $e');
-    }
-  }
-
-  Future<void> _criarAgendamento() async {
-    TimeOfDay? selectedTime = const TimeOfDay(hour: 8, minute: 0);
-    String atuador = 'solenoide';
-    int valor = 1;
-    List<int> diasSelecionados = [];
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Nova Rotina Automática'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: Text('Horário: ${selectedTime?.format(context)}'),
-                  trailing: const Icon(Icons.access_time),
-                  onTap: () async {
-                    final picked = await showTimePicker(context: context, initialTime: selectedTime!);
-                    if (picked != null) setDialogState(() => selectedTime = picked);
-                  },
-                ),
-                DropdownButtonFormField<String>(
-                  value: atuador,
-                  decoration: const InputDecoration(labelText: 'Dispositivo'),
-                  items: const [
-                    DropdownMenuItem(value: 'solenoide', child: Text('Solenoide')),
-                    DropdownMenuItem(value: 'moduloRele', child: Text('Bomba de Água')),
-                  ],
-                  onChanged: (v) => setDialogState(() => atuador = v!),
-                ),
-                DropdownButtonFormField<int>(
-                  initialValue: valor,
-                  decoration: const InputDecoration(labelText: 'Ação'),
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('Ligar')),
-                    DropdownMenuItem(value: 0, child: Text('Desligar')),
-                  ],
-                  onChanged: (v) => setDialogState(() => valor = v!),
-                ),
-                const SizedBox(height: 16),
-                const Text('Dias da Semana:', style: TextStyle(fontWeight: FontWeight.bold)),
-                Wrap(
-                  spacing: 4,
-                  children: List.generate(7, (i) {
-                    final dias = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
-                    final isSel = diasSelecionados.contains(i);
-                    return FilterChip(
-                      label: Text(dias[i], style: TextStyle(color: isSel ? Colors.white : Colors.black, fontSize: 10)),
-                      selected: isSel,
-                      selectedColor: _primaryGreen,
-                      onSelected: (v) {
-                        setDialogState(() {
-                          v ? diasSelecionados.add(i) : diasSelecionados.remove(i);
-                        });
-                      },
-                    );
-                  }),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(
-              onPressed: () async {
-                if (diasSelecionados.isEmpty) return;
-                Navigator.pop(context);
-                await _salvarAgendamento(selectedTime!, atuador, valor, diasSelecionados);
-              },
-              child: const Text('Agendar'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _salvarAgendamento(TimeOfDay time, String atuador, int valor, List<int> dias) async {
-    try {
-      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
-      final String horaStr = '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+      final userId = widget.usuario['id'];
       
+      final String dispositivo = widget.plantacao['device_id'] ?? 
+                                 _dadosAtuais['dispositivo'] ?? 
+                                 widget.plantacao['descricao'];
+                                 
+      final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comando';
+
+      final int solVal = (atuador == 'solenoide') ? valor : (_statusAtuadores['solenoide'] ?? 0);
+      final int relVal = (atuador == 'moduloRele') ? valor : (_statusAtuadores['moduloRele'] ?? 0);
+
       final response = await http.post(
-        Uri.parse('http://$host:8000/agendamentos'),
+        Uri.parse('http://$host:8000/plantacoes/comando/$userId'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'fk_id_irrigacao': widget.plantacao['id'],
-          'atuador': atuador,
-          'valor': valor,
-          'horario': horaStr,
-          'dias_semana': dias.join(','),
+          'topico': topicoComando,
+          'comando': {
+            'dispositivo': dispositivo,
+            'solenoide': solVal,
+            'moduloRele': relVal,
+          },
         }),
       );
 
       if (response.statusCode == 200) {
-        _carregarAgendamentos();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${atuador.toUpperCase()} -> ${valor == 1 ? "LIGADO" : "DESLIGADO"}'),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: _primaryGreen,
+          ),
+        );
+        await _buscarDadosMQTT();
       }
     } catch (e) {
-      debugPrint('Erro ao salvar: $e');
+      debugPrint('Erro: $e');
     }
+  }
+
+  void _confirmarAcao(String chaveAtuador, int valor, String nomeVisivel) {
+    final acao = valor == 1 ? 'LIGAR' : 'DESLIGAR';
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirmação'),
+        content: Text('Tem certeza que deseja $acao o atuador "$nomeVisivel"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _enviarComando(chaveAtuador, valor);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: _primaryGreen),
+            child: const Text('Confirmar', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -183,30 +152,27 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text('Sensores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            const SizedBox(height: 16),
             _buildSensorRow(),
-            const SizedBox(height: 32),
-            const Text('Rotinas de Automação', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _agendamentos.isEmpty
-                ? _buildEmptyState()
-                : ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _agendamentos.length,
-                    itemBuilder: (context, i) => _buildAgendamentoCard(_agendamentos[i]),
-                  ),
+            const SizedBox(height: 24),
+            _buildExtraSensorRow(),
+            const SizedBox(height: 40),
+            const Text('Controle de Atuadores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            const SizedBox(height: 8),
+            const Text('Acione os componentes manualmente', style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(height: 24),
+            
+            _buildControleSection('Solenoide', 'solenoide'),
+            const SizedBox(height: 20),
+            _buildControleSection('Bomba de Água', 'moduloRele'),
+            const SizedBox(height: 40),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _criarAgendamento,
-        backgroundColor: _primaryGreen,
-        label: const Text('Nova Rotina', style: TextStyle(color: Colors.white)),
-        icon: const Icon(Icons.alarm_add, color: Colors.white),
       ),
     );
   }
@@ -215,73 +181,112 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     return Row(
       children: [
         Expanded(child: _buildMiniCard('Temperatura', '${_dadosAtuais['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange)),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         Expanded(child: _buildMiniCard('Umid. Solo', '${_dadosAtuais['umiSolo'] ?? '--'}%', Icons.water_drop, Colors.blue)),
       ],
     );
   }
 
+  Widget _buildExtraSensorRow() {
+    return Row(
+      children: [
+        Expanded(child: _buildMiniCard('Umid. Ambiente', '${_dadosAtuais['umiAmbiente'] ?? '--'}%', Icons.cloud_outlined, Colors.cyan)),
+        const SizedBox(width: 16),
+        const Spacer(),
+      ],
+    );
+  }
+
   Widget _buildMiniCard(String label, String valor, IconData icon, Color color) {
+    final String origemSensor = _dadosAtuais['nome_sensor_UI'] ?? 'Desconhecido';
+    
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)],
       ),
       child: Column(
         children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(height: 12),
+          Text(valor, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(origemSensor, style: const TextStyle(fontSize: 9, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildControleSection(String label, String chaveAtuador) {
+    final bool estaLigado = _statusAtuadores[chaveAtuador] == 1;
+
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.event_note, size: 48, color: Color(0xFFCBD5E1)),
-          SizedBox(height: 16),
-          Text('Nenhuma rotina agendada.', style: TextStyle(color: Color(0xFF64748B))),
+          Row(
+            children: [
+              Icon(chaveAtuador == 'solenoide' ? Icons.waves : Icons.settings_input_component, 
+                   color: estaLigado ? Colors.green : Colors.grey),
+              const SizedBox(width: 12),
+              Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (estaLigado ? Colors.green : Colors.grey).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  estaLigado ? 'LIGADO' : 'DESLIGADO',
+                  style: TextStyle(color: estaLigado ? Colors.green : Colors.grey, fontSize: 10, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _confirmarAcao(chaveAtuador, 1, label),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('LIGAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => _confirmarAcao(chaveAtuador, 0, label),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF1F5F9),
+                    foregroundColor: const Color(0xFF475569),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('DESLIGAR', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAgendamentoCard(dynamic agenda) {
-    final dias = agenda['dias_semana'].toString().split(',');
-    final diasNomes = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    final formatados = dias.map((d) => diasNomes[int.parse(d)]).join(', ');
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Icon(
-          agenda['atuador'] == 'solenoide' ? Icons.waves : Icons.power,
-          color: agenda['valor'] == 1 ? Colors.green : Colors.red,
-        ),
-        title: Text('${agenda['horario']} - ${agenda['valor'] == 1 ? 'LIGAR' : 'DESLIGAR'}'),
-        subtitle: Text(formatados),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete_sweep, color: Colors.redAccent),
-          onPressed: () async {
-            final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
-            await http.delete(Uri.parse('http://$host:8000/agendamentos/${agenda['id']}'));
-            _carregarAgendamentos();
-          },
-        ),
       ),
     );
   }
