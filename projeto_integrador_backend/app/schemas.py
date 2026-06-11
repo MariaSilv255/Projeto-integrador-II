@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional, List
 
-# Esquemas Pydantic baseados no diagrama de banco de dados
-
 class UsuarioBase(BaseModel):
     nome_usuario: str
 
@@ -34,24 +32,9 @@ class CadastroIrrigacao(BaseModel):
     id: Optional[int] = None
     fk_id_usuario: int
     descricao: str
-    topico: Optional[str] = "Equipe3/sensores" # Valor padrão ou fornecido pelo usuário
+    topico: Optional[str] = "Equipe3/sensores"
+    device_id: Optional[str] = None
     fk_id_broker: int
-
-    class Config:
-        from_attributes = True
-
-class AgendamentoBase(BaseModel):
-    fk_id_irrigacao: int
-    atuador: str
-    valor: int
-    horario: str
-    dias_semana: str
-
-class AgendamentoCreate(AgendamentoBase):
-    pass
-
-class Agendamento(AgendamentoBase):
-    id: int
 
     class Config:
         from_attributes = True

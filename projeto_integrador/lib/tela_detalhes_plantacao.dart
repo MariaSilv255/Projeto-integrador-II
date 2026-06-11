@@ -102,7 +102,7 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
                   onChanged: (v) => setDialogState(() => atuador = v!),
                 ),
                 DropdownButtonFormField<int>(
-                  value: valor,
+                  initialValue: valor,
                   decoration: const InputDecoration(labelText: 'Ação'),
                   items: const [
                     DropdownMenuItem(value: 1, child: Text('Ligar')),
@@ -227,7 +227,7 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
       ),
       child: Column(
         children: [

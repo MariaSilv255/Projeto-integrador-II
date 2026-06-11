@@ -13,7 +13,7 @@ async def obter_dados_tempo_real():
 
 @router.get("/irrigacao/topicos-descobertos", tags=["Irrigação"])
 async def listar_topicos_descobertos():
-    # Retorna apenas as chaves (tópicos) que já receberam dados
+
     return list(get_latest_data().keys())
 
 @router.post("/irrigacao", tags=["Irrigação"])
@@ -22,6 +22,7 @@ async def criar_cadastro_irrigacao(cadastro: schemas.CadastroIrrigacao, db: Sess
         fk_id_usuario=cadastro.fk_id_usuario,
         descricao=cadastro.descricao,
         topico=cadastro.topico,
+        device_id=cadastro.device_id,
         fk_id_broker=cadastro.fk_id_broker
     )
     db.add(novo_cadastro)
@@ -46,10 +47,10 @@ async def atualizar_cadastro_irrigacao(irrigacao_id: int, cadastro_data: schemas
     db_cadastro = db.query(models.CadastroIrrigacao).filter(models.CadastroIrrigacao.id == irrigacao_id).first()
     if not db_cadastro:
         raise HTTPException(status_code=404, detail="Cadastro de irrigação não encontrado")
-    
+
     db_cadastro.descricao = cadastro_data.descricao
     db_cadastro.fk_id_broker = cadastro_data.fk_id_broker
-    
+
     db.commit()
     db.refresh(db_cadastro)
     return db_cadastro
@@ -59,7 +60,7 @@ async def deletar_cadastro_irrigacao(irrigacao_id: int, db: Session = Depends(ge
     db_cadastro = db.query(models.CadastroIrrigacao).filter(models.CadastroIrrigacao.id == irrigacao_id).first()
     if not db_cadastro:
         raise HTTPException(status_code=404, detail="Cadastro de irrigação não encontrado")
-    
+
     db.delete(db_cadastro)
     db.commit()
     return {"mensagem": "Cadastro de irrigação deletado com sucesso"}
@@ -67,13 +68,13 @@ async def deletar_cadastro_irrigacao(irrigacao_id: int, db: Session = Depends(ge
 @router.post("/irrigacao/comando", tags=["Irrigação"])
 async def enviar_comando(payload: dict):
     from app.mqtt_client import publish_message
-    
+
     topic = payload.get("topico")
     comando = payload.get("comando")
-    
+
     if not topic or comando is None:
         raise HTTPException(status_code=400, detail="Tópico e comando são obrigatórios")
-    
+
     sucesso = publish_message(topic, comando)
     if sucesso:
         return {"mensagem": "Comando enviado com sucesso"}

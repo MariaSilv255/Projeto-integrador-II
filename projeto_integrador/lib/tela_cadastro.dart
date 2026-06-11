@@ -12,7 +12,7 @@ class TelaCadastro extends StatefulWidget {
 
 class _TelaCadastroState extends State<TelaCadastro> {
   final _formKey = GlobalKey<FormState>();
-  
+
   final _nomeUsuarioController = TextEditingController();
   final _emailController = TextEditingController();
   final _senhaController = TextEditingController();

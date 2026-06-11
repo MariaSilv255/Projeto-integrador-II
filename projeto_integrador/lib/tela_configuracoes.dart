@@ -26,7 +26,6 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final response = await http.get(Uri.parse('http://$host:8000/brokers'));
-
       if (response.statusCode == 200) {
         setState(() {
           _brokers = jsonDecode(response.body);
@@ -36,7 +35,6 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      debugPrint('Erro ao carregar brokers: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -45,7 +43,6 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
     final TextEditingController hostController = TextEditingController();
     final TextEditingController userController = TextEditingController();
     final TextEditingController passwordController = TextEditingController();
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -85,16 +82,15 @@ class _TelaConfiguracoesState extends State<TelaConfiguracoes> {
           'host': host,
           'username': user,
           'chave_usuario': password,
-          'login': user, // Using user as login for now
+          'login': user, 
           'certificado_cliente': 'default',
         }),
       );
-
       if (response.statusCode == 200 || response.statusCode == 201) {
         _carregarBrokers();
       }
     } catch (e) {
-      debugPrint('Erro ao salvar broker: $e');
+      debugPrint('Erro: $e');
     }
   }
 

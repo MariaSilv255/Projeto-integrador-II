@@ -3,4 +3,3 @@ uvicorn[standard]
 paho-mqtt
 python-dotenv
 sqlalchemy
-apscheduler

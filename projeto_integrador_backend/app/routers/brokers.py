@@ -36,13 +36,13 @@ async def atualizar_broker(broker_id: int, broker_data: schemas.Broker, db: Sess
     db_broker = db.query(models.Broker).filter(models.Broker.id == broker_id).first()
     if not db_broker:
         raise HTTPException(status_code=404, detail="Broker não encontrado")
-    
+
     db_broker.login = broker_data.login
     db_broker.certificado_cliente = broker_data.certificado_cliente
     db_broker.username = broker_data.username
     db_broker.chave_usuario = broker_data.chave_usuario
     db_broker.host = broker_data.host
-    
+
     db.commit()
     db.refresh(db_broker)
     return db_broker
@@ -52,7 +52,7 @@ async def deletar_broker(broker_id: int, db: Session = Depends(get_db)):
     db_broker = db.query(models.Broker).filter(models.Broker.id == broker_id).first()
     if not db_broker:
         raise HTTPException(status_code=404, detail="Broker não encontrado")
-    
+
     db.delete(db_broker)
     db.commit()
     return {"mensagem": "Broker deletado com sucesso"}

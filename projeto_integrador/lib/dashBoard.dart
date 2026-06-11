@@ -51,44 +51,19 @@ class _DashBoardState extends State<DashBoard> {
     }
   }
 
-  Future<void> _enviarComando(String atuador, int valor) async {
-    try {
-      final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
-      const String topicoComando = 'Equipe3/atuadores';
-      
-      final response = await http.post(
-        Uri.parse('http://$host:8000/irrigacao/comando'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'topico': topicoComando,
-          'comando': {atuador: valor},
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Comando enviado para $atuador'),
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: _primaryGreen,
-          ),
-        );
-        // Busca os dados imediatamente após o comando para refletir a mudança
-        await _buscarDados();
-      }
-    } catch (e) {
-      debugPrint('Erro: $e');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading && _dadosMqtt.isEmpty) {
       return const Center(child: CircularProgressIndicator(color: _primaryGreen));
     }
 
-    final sensores = _dadosMqtt['Equipe3/sensores'] ?? {};
-    final atuadores = _dadosMqtt['Equipe3/atuadores'] ?? {};
+    // Filtra os tópicos para remover os de sistema
+    final topicosValidos = _dadosMqtt.keys.where((t) {
+      return !t.endsWith('/sensores') && 
+             !t.endsWith('/atuadores') && 
+             !t.endsWith('/dispositivos') && 
+             !t.endsWith('/comando');
+    }).toList();
 
     return Scaffold(
       backgroundColor: _backgroundGrey,
@@ -98,95 +73,151 @@ class _DashBoardState extends State<DashBoard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Status Geral',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
+              'Visão Geral',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Color(0xFF1E293B)),
             ),
             const SizedBox(height: 4),
-            const Text(
-              'Acompanhe os sensores em tempo real',
-              style: TextStyle(fontSize: 14, color: Color(0xFF64748B)),
+            Text(
+              'Monitoramento de ${topicosValidos.length} plantações ativas',
+              style: const TextStyle(fontSize: 14, color: Color(0xFF64748B)),
             ),
             const SizedBox(height: 24),
-            
-            // Grid de Sensores
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 1.1,
-              children: [
-                _buildSensorCard('Temperatura', '${sensores['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange),
-                _buildSensorCard('Umidade Solo', '${sensores['umiSolo'] ?? '--'}%', Icons.water_drop, Colors.blue),
-                _buildSensorCard('Umid. Ambiente', '${sensores['umiAmbiente'] ?? '--'}%', Icons.cloud, Colors.cyan),
-                _buildSensorCard('Dispositivos', '${_dadosMqtt.length}', Icons.sensors, Colors.purple),
-              ],
-            ),
-            
+
+            if (topicosValidos.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: const Column(
+                  children: [
+                    Icon(Icons.sensors_off, size: 48, color: Color(0xFFCBD5E1)),
+                    SizedBox(height: 16),
+                    Text('Nenhum dado de plantação recebido ainda.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))),
+                  ],
+                ),
+              )
+            else
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: topicosValidos.length,
+                itemBuilder: (context, index) {
+                  final topico = topicosValidos[index];
+                  final dados = _dadosMqtt[topico];
+                  
+                  final dispositivo = dados['dispositivo'] ?? 'Dispositivo Desconhecido';
+                  final temp = dados['temperatura'] ?? '--';
+                  final umiSolo = dados['umiSolo'] ?? '--';
+
+                  return _buildPlantacaoCard(topico, dispositivo.toString(), temp.toString(), umiSolo.toString());
+                },
+              ),
+
             const SizedBox(height: 32),
-            const Text(
-              'Controle de Atuadores',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: _primaryGreen.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: _primaryGreen.withValues(alpha: 0.1)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: _primaryGreen),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Para controlar os atuadores, selecione uma plantação específica na aba "Plantação".',
+                      style: TextStyle(fontSize: 13, color: _primaryGreen, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            
-            _buildAtuadorCard('Solenoide de Irrigação', atuadores['solenoide'] == 1, Icons.waves, (v) => _enviarComando('solenoide', v ? 1 : 0)),
-            const SizedBox(height: 12),
-            _buildAtuadorCard('Bomba Hidráulica', atuadores['moduloRele'] == 1, Icons.settings_input_component, (v) => _enviarComando('moduloRele', v ? 1 : 0)),
-            
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildSensorCard(String label, String valor, IconData icone, Color cor) {
+  Widget _buildPlantacaoCard(String topico, String dispositivo, String temp, String umidade) {
+    // Formata o nome do tópico para exibição (ex: Equipe3/trigo -> trigo)
+    final nomeExibicao = topico.split('/').last.toUpperCase();
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 10, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: cor.withOpacity(0.1), shape: BoxShape.circle),
-            child: Icon(icone, color: cor, size: 24),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: _primaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                child: const Icon(Icons.eco, color: _primaryGreen, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(nomeExibicao, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                    Text('Dispositivo: $dispositivo', style: const TextStyle(fontSize: 12, color: Color(0xFF64748B))),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          Text(valor, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
-          const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          const SizedBox(height: 16),
+          const Divider(color: Color(0xFFF1F5F9), height: 1),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.thermostat, color: Colors.orange, size: 18),
+                    const SizedBox(width: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Temp.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text('$temp°C', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Row(
+                  children: [
+                    const Icon(Icons.water_drop, color: Colors.blue, size: 18),
+                    const SizedBox(width: 6),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Umid. Solo', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text('$umidade%', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAtuadorCard(String label, bool ativo, IconData icone, Function(bool) onChanged) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: SwitchListTile(
-        secondary: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: (ativo ? Colors.green : Colors.grey).withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-          child: Icon(icone, color: ativo ? Colors.green : Colors.grey, size: 20),
-        ),
-        title: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        subtitle: Text(ativo ? 'Operando' : 'Inativo', style: TextStyle(color: ativo ? Colors.green : Colors.grey, fontSize: 12)),
-        value: ativo,
-        onChanged: onChanged,
-        activeColor: Colors.green,
       ),
     );
   }

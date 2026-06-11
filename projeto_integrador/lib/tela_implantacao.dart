@@ -178,7 +178,7 @@ class _TelaImplantacaoState extends State<TelaImplantacao> {
                           ? const Center(child: Text('Nenhuma empresa cadastrada.'))
                           : ListView.separated(
                               itemCount: _empresasFiltradas.length,
-                              separatorBuilder: (_, __) => const SizedBox(height: 8),
+                              separatorBuilder: (_, _) => const SizedBox(height: 8),
                               itemBuilder: (context, index) {
                                 final empresa = _empresasFiltradas[index];
                                 final bool bloqueada = (empresa['Bloqueio'] ?? 0) == 1;

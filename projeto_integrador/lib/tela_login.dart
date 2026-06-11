@@ -141,7 +141,7 @@ class _TelaLoginState extends State<TelaLogin> {
                           backgroundColor: _primaryGreen,
                           foregroundColor: Colors.white,
                           elevation: 2,
-                          shadowColor: _primaryGreen.withOpacity(0.4),
+                          shadowColor: _primaryGreen.withValues(alpha: 0.4),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         child: _isLoading

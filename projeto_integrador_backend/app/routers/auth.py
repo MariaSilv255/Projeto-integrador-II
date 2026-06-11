@@ -21,10 +21,10 @@ async def registrar(reg_usuario: schemas.UsuarioCreate, db: Session = Depends(ge
     db_usuario = db.query(models.Usuario).filter(models.Usuario.nome_usuario == reg_usuario.nome_usuario).first()
     if db_usuario:
         raise HTTPException(status_code=400, detail="Nome de usuário já registrado")
-    
+
     novo_usuario = models.Usuario(nome_usuario=reg_usuario.nome_usuario, senha=reg_usuario.senha)
     db.add(novo_usuario)
     db.commit()
     db.refresh(novo_usuario)
-    
+
     return {"mensagem": f"Usuário {reg_usuario.nome_usuario} registrado com sucesso"}
