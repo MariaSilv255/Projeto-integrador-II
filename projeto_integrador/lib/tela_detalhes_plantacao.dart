@@ -17,6 +17,7 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
   static const Color _primaryGreen = Color(0xFF2F6B4F);
   final Map<String, dynamic> _dadosAtuais = {};
   final Map<String, dynamic> _statusAtuadores = {};
+  bool _isHardwareOffline = true;
   Timer? _timer;
 
   @override
@@ -44,10 +45,12 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
         if (mounted) {
           setState(() {
             final String baseTopic = (widget.plantacao['topico'] ?? '').toString().toLowerCase();
+            final String savedDeviceId = (widget.plantacao['device_id'] ?? 'Desconhecido').toString();
             
             _dadosAtuais.clear();
             _statusAtuadores.clear();
             String lastSensorName = 'Desconhecido';
+            bool foundOnlineSignal = false;
 
             todosDados.forEach((key, payload) {
               final normalizedKey = key.toLowerCase();
@@ -61,9 +64,17 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
                   } else {
                     _dadosAtuais.addAll(Map<String, dynamic>.from(payload));
                   }
+                  if (payload['_offline'] == false) foundOnlineSignal = true;
+                }
+                
+                final deviceStatusTopic = 'equipe3/dispositivos/${savedDeviceId.toLowerCase()}/status';
+                if (normalizedKey == deviceStatusTopic) {
+                  if (payload['value'] == 'online') foundOnlineSignal = true;
+                  if (payload['value'] == 'offline') foundOnlineSignal = false;
                 }
               }
             });
+            _isHardwareOffline = !foundOnlineSignal;
             _dadosAtuais['nome_sensor_UI'] = lastSensorName;
           });
         }
@@ -74,14 +85,17 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
   }
 
   Future<void> _enviarComando(String atuador, int valor) async {
+    if (_isHardwareOffline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dispositivo OFFLINE. Verifique a conexão do hardware.'), backgroundColor: Colors.redAccent),
+      );
+      return;
+    }
+
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final userId = widget.usuario['id'];
-      
-      final String dispositivo = widget.plantacao['device_id'] ?? 
-                                 _dadosAtuais['dispositivo'] ?? 
-                                 widget.plantacao['descricao'];
-                                 
+      final String dispositivo = widget.plantacao['device_id'] ?? _dadosAtuais['dispositivo'] ?? widget.plantacao['descricao'];
       final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comando';
 
       final int solVal = (atuador == 'solenoide') ? valor : (_statusAtuadores['solenoide'] ?? 0);
@@ -93,7 +107,6 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
         body: jsonEncode({
           'topico': topicoComando,
           'comando': {
-            'dispositivo': dispositivo,
             'solenoide': solVal,
             'moduloRele': relVal,
           },
@@ -147,7 +160,17 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: Text(widget.plantacao['descricao']),
+        title: Row(
+          children: [
+            Expanded(child: Text(widget.plantacao['descricao'], overflow: TextOverflow.ellipsis)),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: (_isHardwareOffline ? Colors.redAccent : Colors.green).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: (_isHardwareOffline ? Colors.redAccent : Colors.green).withValues(alpha: 0.3))),
+              child: Text(_isHardwareOffline ? 'OFFLINE' : 'ONLINE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: _isHardwareOffline ? Colors.redAccent : Colors.green)),
+            ),
+          ],
+        ),
         backgroundColor: _primaryGreen,
         foregroundColor: Colors.white,
       ),
@@ -156,6 +179,15 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_isHardwareOffline) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                width: double.infinity,
+                decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2))),
+                child: const Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20), SizedBox(width: 12), Expanded(child: Text('Hardware desconectado. Os dados podem estar desatualizados e os comandos não funcionarão.', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)))]),
+              ),
+              const SizedBox(height: 24),
+            ],
             const Text('Sensores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const SizedBox(height: 16),
             _buildSensorRow(),
@@ -166,7 +198,6 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
             const SizedBox(height: 8),
             const Text('Acione os componentes manualmente', style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 24),
-            
             _buildControleSection('Solenoide', 'solenoide'),
             const SizedBox(height: 20),
             _buildControleSection('Bomba de Água', 'moduloRele'),
@@ -199,21 +230,12 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
 
   Widget _buildMiniCard(String label, String valor, IconData icon, Color color) {
     final String origemSensor = _dadosAtuais['nome_sensor_UI'] ?? 'Desconhecido';
-    
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)],
-      ),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)]),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
-            child: Icon(icon, color: color, size: 22),
-          ),
+          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)),
           const SizedBox(height: 12),
           Text(valor, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
           Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
@@ -226,67 +248,32 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
 
   Widget _buildControleSection(String label, String chaveAtuador) {
     final bool estaLigado = _statusAtuadores[chaveAtuador] == 1;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(chaveAtuador == 'solenoide' ? Icons.waves : Icons.settings_input_component, 
-                   color: estaLigado ? Colors.green : Colors.grey),
-              const SizedBox(width: 12),
-              Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: (estaLigado ? Colors.green : Colors.grey).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  estaLigado ? 'LIGADO' : 'DESLIGADO',
-                  style: TextStyle(color: estaLigado ? Colors.green : Colors.grey, fontSize: 10, fontWeight: FontWeight.w800),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _confirmarAcao(chaveAtuador, 1, label),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('LIGAR', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: () => _confirmarAcao(chaveAtuador, 0, label),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFF1F5F9),
-                    foregroundColor: const Color(0xFF475569),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text('DESLIGAR', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ],
+    return Opacity(
+      opacity: _isHardwareOffline ? 0.5 : 1.0,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: const Color(0xFFE2E8F0))),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Icon(chaveAtuador == 'solenoide' ? Icons.waves : Icons.settings_input_component, color: estaLigado ? Colors.green : Colors.grey),
+                const SizedBox(width: 12),
+                Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: (estaLigado ? Colors.green : Colors.grey).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)), child: Text(estaLigado ? 'LIGADO' : 'DESLIGADO', style: TextStyle(color: estaLigado ? Colors.green : Colors.grey, fontSize: 10, fontWeight: FontWeight.w800))),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(child: ElevatedButton(onPressed: _isHardwareOffline ? null : () => _confirmarAcao(chaveAtuador, 1, label), style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('LIGAR', style: TextStyle(fontWeight: FontWeight.bold)))),
+                const SizedBox(width: 12),
+                Expanded(child: ElevatedButton(onPressed: _isHardwareOffline ? null : () => _confirmarAcao(chaveAtuador, 0, label), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF1F5F9), foregroundColor: const Color(0xFF475569), elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('DESLIGAR', style: TextStyle(fontWeight: FontWeight.bold)))),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

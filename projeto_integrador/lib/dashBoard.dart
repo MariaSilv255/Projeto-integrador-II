@@ -109,28 +109,57 @@ class _DashBoardState extends State<DashBoard> {
                 itemBuilder: (context, index) {
                   final plantacao = _plantacoesSalvas[index];
                   final String baseTopic = (plantacao['topico'] ?? '').toString().toLowerCase();
+                  final String savedDeviceId = (plantacao['device_id'] ?? 'Desconhecido').toString();
+                  
                   Map<String, dynamic> dadosAgrupados = {};
+                  Map<String, dynamic> atuadoresAgrupados = {};
+                  bool hardwareOffline = true;
+                  int lastSeenSeconds = 0;
+
                   _dadosMqtt.forEach((key, payload) {
                     final normalizedKey = key.toLowerCase();
                     if (payload is Map) {
                       if (normalizedKey == baseTopic || normalizedKey.startsWith('$baseTopic/')) {
-                        dadosAgrupados.addAll(Map<String, dynamic>.from(payload));
+                        if (normalizedKey.contains('/atuadores/')) {
+                          atuadoresAgrupados.addAll(Map<String, dynamic>.from(payload));
+                        } else {
+                          dadosAgrupados.addAll(Map<String, dynamic>.from(payload));
+                        }
+                        if (payload['_offline'] == false) hardwareOffline = false;
+                        lastSeenSeconds = payload['_last_seen'] ?? 0;
+                      }
+                      
+                      // Verifica status explícito no tópico de dispositivos
+                      final deviceStatusTopic = 'equipe3/dispositivos/${savedDeviceId.toLowerCase()}/status';
+                      if (normalizedKey == deviceStatusTopic) {
+                        if (payload['_offline'] == false) hardwareOffline = false;
+                        lastSeenSeconds = payload['_last_seen'] ?? 0;
+                        // Se o valor for explicitamente "offline", marca como offline
+                        if (payload['value'] == 'offline') hardwareOffline = true;
                       }
                     }
                   });
-                  String? deviceId = plantacao['device_id'];
-                  if (deviceId == null || deviceId == 'Desconhecido') {
-                    deviceId = dadosAgrupados['dispositivo']?.toString();
-                  }
-                  final String dispExibicao = deviceId ?? 'Desconhecido';
+
+                  final dispositivo = plantacao['device_id'] ?? dadosAgrupados['dispositivo'] ?? 'Desconhecido';
                   final temp = dadosAgrupados['temperatura'] ?? '--';
                   final umiSolo = dadosAgrupados['umiSolo'] ?? '--';
                   final umiAmb = dadosAgrupados['umiAmbiente'] ?? '--';
-                  final solenoideLigado = dadosAgrupados['solenoide'] == 1;
-                  final bombaLigada = dadosAgrupados['moduloRele'] == 1;
+                  final solenoideLigado = atuadoresAgrupados['solenoide'] == 1;
+                  final bombaLigada = atuadoresAgrupados['moduloRele'] == 1;
+                  
                   return GestureDetector(
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TelaDetalhesPlantacao(plantacao: plantacao, usuario: widget.usuario))),
-                    child: _buildPlantacaoCard(plantacao['descricao'].toString(), dispExibicao, temp.toString(), umiSolo.toString(), umiAmb.toString(), solenoideLigado, bombaLigada),
+                    child: _buildPlantacaoCard(
+                      plantacao['descricao'].toString(), 
+                      dispositivo.toString(), 
+                      temp.toString(), 
+                      umiSolo.toString(), 
+                      umiAmb.toString(), 
+                      solenoideLigado, 
+                      bombaLigada,
+                      hardwareOffline,
+                      lastSeenSeconds
+                    ),
                   );
                 },
               ),
@@ -172,7 +201,7 @@ class _DashBoardState extends State<DashBoard> {
     );
   }
 
-  Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, String umidAmb, bool sol, bool bom) {
+  Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, String umidAmb, bool sol, bool bom, bool isOffline, int lastSeen) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -180,16 +209,29 @@ class _DashBoardState extends State<DashBoard> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4))],
-        border: Border.all(color: _primaryGreen.withValues(alpha: 0.2), width: 1),
+        border: Border.all(color: isOffline ? Colors.redAccent.withValues(alpha: 0.3) : _primaryGreen.withValues(alpha: 0.2), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: _primaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.eco, color: _primaryGreen, size: 20)),
+              Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: (isOffline ? Colors.redAccent : _primaryGreen).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: Icon(Icons.eco, color: isOffline ? Colors.redAccent : _primaryGreen, size: 20)),
               const SizedBox(width: 12),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(nome, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))), Text('Dispositivo: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))])),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(
+                  children: [
+                    Text(nome, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: (isOffline ? Colors.redAccent : Colors.green).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                      child: Text(isOffline ? 'OFFLINE' : 'ONLINE', style: TextStyle(color: isOffline ? Colors.redAccent : Colors.green, fontSize: 8, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+                Text('ID: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))
+              ])),
               const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFCBD5E1)),
             ],
           ),
@@ -204,32 +246,18 @@ class _DashBoardState extends State<DashBoard> {
             ],
           ),
           const SizedBox(height: 16),
-          Row(children: [_buildBadge('Solenoide', sol), const SizedBox(width: 8), _buildBadge('Bomba', bom)]),
+          Row(children: [_buildBadge('Solenoide', sol, isOffline), const SizedBox(width: 8), _buildBadge('Bomba', bom, isOffline)]),
         ],
       ),
     );
   }
 
   Widget _buildSensorInfo(IconData icon, Color color, String label, String val) {
-    return Expanded(
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 16),
-          const SizedBox(width: 4),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-              Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-            ],
-          ),
-        ],
-      ),
-    );
+    return Expanded(child: Row(children: [Icon(icon, color: color, size: 16), const SizedBox(width: 4), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)), Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)))])]));
   }
 
-  Widget _buildBadge(String label, bool isOn) {
-    final color = isOn ? Colors.green : Colors.grey;
+  Widget _buildBadge(String label, bool isOn, bool isOffline) {
+    final color = isOffline ? Colors.grey : (isOn ? Colors.green : Colors.grey);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(

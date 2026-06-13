@@ -2,10 +2,14 @@ import os
 import json
 import paho.mqtt.client as mqtt
 from typing import Dict
+import threading
+import time
 
 user_clients: Dict[int, mqtt.Client] = {}
 latest_sensor_data: Dict[int, Dict[str, any]] = {}
 user_status: Dict[int, str] = {}
+
+data_lock = threading.Lock()
 
 def on_connect(client, userdata, flags, rc):
     user_id = userdata.get("user_id")
@@ -28,21 +32,25 @@ def on_disconnect(client, userdata, rc):
 
 def on_message(client, userdata, msg):
     user_id = userdata.get("user_id")
-    if user_id not in latest_sensor_data:
-        latest_sensor_data[user_id] = {}
     
-    try:
-        payload_str = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
-        print(f"DEBUG: Msg on {msg.topic} for User {user_id}: {payload_str}")
+    with data_lock:
+        if user_id not in latest_sensor_data:
+            latest_sensor_data[user_id] = {}
         
         try:
-            data = json.loads(payload_str)
-        except:
-            data = payload_str
-        
-        latest_sensor_data[user_id][msg.topic] = data
-    except Exception as e:
-        print(f"DEBUG: Msg error: {e}")
+            payload_str = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+            
+            try:
+                data = json.loads(payload_str)
+            except:
+                data = payload_str
+            
+            latest_sensor_data[user_id][msg.topic] = {
+                "payload": data,
+                "timestamp": time.time()
+            }
+        except Exception as e:
+            print(f"DEBUG: Msg error: {e}")
 
 def connect_user(user_id: int, host: str, port: int, username: str = None, password: str = None):
     print(f"DEBUG: Connecting User {user_id} to {host}")
@@ -82,12 +90,34 @@ def disconnect_user(user_id: int):
     user_status[user_id] = "Desconectado"
 
 def get_user_status(user_id: int):
-    status = user_status.get(user_id, "Offline")
-    print(f"DEBUG: Status check for User {user_id} -> {status}")
-    return status
+    return user_status.get(user_id, "Offline")
 
 def get_latest_data(user_id: int):
-    return latest_sensor_data.get(user_id, {})
+    with data_lock:
+        raw_data = latest_sensor_data.get(user_id, {})
+        processed_data = {}
+        current_time = time.time()
+        
+        for topic, info in raw_data.items():
+            payload = info["payload"]
+            
+            is_offline = (current_time - info["timestamp"]) > 120
+
+            if topic.endswith("/status"):
+                if isinstance(payload, str) and payload.lower() == "offline":
+                    is_offline = True
+                elif isinstance(payload, dict) and payload.get("status") == "offline":
+                    is_offline = True
+
+            if isinstance(payload, dict):
+                payload["_offline"] = is_offline
+                payload["_last_seen"] = int(current_time - info["timestamp"])
+            elif isinstance(payload, str):
+                payload = {"value": payload, "_offline": is_offline, "_last_seen": int(current_time - info["timestamp"])}
+            
+            processed_data[topic] = payload
+            
+        return processed_data
 
 def publish_message(user_id: int, topic: str, message: any):
     client = user_clients.get(user_id)
