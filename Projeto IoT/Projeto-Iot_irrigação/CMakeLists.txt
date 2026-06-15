@@ -28,46 +28,50 @@ set(PICO_BOARD pico_w CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-project(irrigacao_iot C CXX ASM)
+project(mqtt_psk C CXX ASM)
+
+# Pull in FreeRTOS
+include($ENV{FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(irrigacao_iot irrigacao_iot.c
-    src/MQTTConnectClient.c
-    src/MQTTDeserializePublish.c
-    src/MQTTFormat.c
-    src/MQTTPacket.c
-    src/MQTTSerializePublish.c
-    src/MQTTSubscribeClient.c
-    src/MQTTUnsubscribeClient.c
-    )
+add_executable(mqtt_psk
+    mqtt_psk.c 
+    inc/ssd1306_i2c.c
+    src/mqtt_comm.c
+    src/wifi_conn.c
+    dht/dht.c)
 
-pico_set_program_name(irrigacao_iot "irrigacao_iot")
-pico_set_program_version(irrigacao_iot "0.1")
+pico_set_program_name(mqtt_psk "mqtt_psk")
+pico_set_program_version(mqtt_psk "0.1")
 
 # Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(irrigacao_iot 1)
-pico_enable_stdio_usb(irrigacao_iot 1)
+pico_enable_stdio_uart(mqtt_psk 0)
+pico_enable_stdio_usb(mqtt_psk 1)
 
 # Add the standard library to the build
-target_link_libraries(irrigacao_iot
+target_link_libraries(mqtt_psk
         pico_stdlib)
 
 # Add the standard include files to the build
-target_include_directories(irrigacao_iot PRIVATE
+target_include_directories(mqtt_psk PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}
-        src
 )
 
 # Add any user requested libraries
-target_link_libraries(irrigacao_iot 
-        pico_cyw43_arch_lwip_poll
-        pico_lwip_mbedtls
-        pico_mbedtls
-        pico_lwip_sntp
+target_link_libraries(mqtt_psk 
+        FreeRTOS-Kernel 
+        FreeRTOS-Kernel-Heap4 
+        hardware_adc
+        hardware_i2c
+        pico_cyw43_arch_lwip_threadsafe_background
+        pico_lwip_mqtt
+        pico_lwip
+        pico_cyw43_driver
         )
 
-pico_add_extra_outputs(irrigacao_iot)
+pico_add_extra_outputs(mqtt_psk)
+
