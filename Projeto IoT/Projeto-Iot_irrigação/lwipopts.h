@@ -1,6 +1,5 @@
-#ifndef _LWIPOPTS_EXAMPLE_COMMONH_H
-#define _LWIPOPTS_EXAMPLE_COMMONH_H
-
+#ifndef __LWIPOPTS_H__
+#define __LWIPOPTS_H__
 
 // Common settings used in most of the pico_w examples
 // (see https://www.nongnu.org/lwip/2_1_x/group__lwip__opts.html for details)
@@ -20,9 +19,7 @@
 #define MEM_LIBC_MALLOC             0
 #endif
 #define MEM_ALIGNMENT               4
-#ifndef MEM_SIZE
-#define MEM_SIZE                    16384
-#endif
+#define MEM_SIZE                    4000
 #define MEMP_NUM_TCP_SEG            32
 #define MEMP_NUM_ARP_QUEUE          10
 #define PBUF_POOL_SIZE              24
@@ -30,9 +27,9 @@
 #define LWIP_ETHERNET               1
 #define LWIP_ICMP                   1
 #define LWIP_RAW                    1
-#define TCP_WND                     (4 * TCP_MSS)
+#define TCP_WND                     (8 * TCP_MSS)
 #define TCP_MSS                     1460
-#define TCP_SND_BUF                 (4 * TCP_MSS)
+#define TCP_SND_BUF                 (8 * TCP_MSS)
 #define TCP_SND_QUEUELEN            ((4 * (TCP_SND_BUF) + (TCP_MSS - 1)) / (TCP_MSS))
 #define LWIP_NETIF_STATUS_CALLBACK  1
 #define LWIP_NETIF_LINK_CALLBACK    1
@@ -53,7 +50,7 @@
 #define LWIP_NETIF_TX_SINGLE_PBUF   1
 #define DHCP_DOES_ARP_CHECK         0
 #define LWIP_DHCP_DOES_ACD_CHECK    0
-#define SNTP_SERVER_DNS             1
+
 #ifndef NDEBUG
 #define LWIP_DEBUG                  1
 #define LWIP_STATS                  1
@@ -89,32 +86,20 @@
 #define SLIP_DEBUG                  LWIP_DBG_OFF
 #define DHCP_DEBUG                  LWIP_DBG_OFF
 
-/*  in Pico-SDK above 1.5.0 */
-#define MEMP_NUM_SYS_TIMEOUT            (LWIP_NUM_SYS_TIMEOUT_INTERNAL+1)
+// Define o número máximo de timeouts do sistema que podem estar ativos simultaneamente
+// LWIP_NUM_SYS_TIMEOUT_INTERNAL é o número de timeouts usados internamente pelo LWIP
+// O + 1 está adicionando um timeout extra para ser usado pela aplicação
+// Timeouts são usados para várias operações como retransmissões TCP, tempo de espera de conexão, etc.
+#define MEMP_NUM_SYS_TIMEOUT   (LWIP_NUM_SYS_TIMEOUT_INTERNAL + 1)
 
-/* TCP WND must be at least 16 kb to match TLS record size
-   or you will get a warning "altcp_tls: TCP_WND is smaller than the RX decrypion buffer, connection RX might stall!" */
-// tls
-#undef TCP_WND
-#define TCP_WND  16384
+// Define o número máximo de requisições MQTT que podem estar "em voo" (não confirmadas) simultaneamente
+// Especificamente para operações de subscribe (inscrição em tópicos MQTT)
+// O valor 5 significa que até 5 requisições simultâneas (como PUBLISH, SUBSCRIBE etc) podem ser enviadas antes de precisar receber as confirmações correspondentes
+// Isso ajuda a controlar o fluxo de mensagens no protocolo MQTT
+#define MQTT_REQ_MAX_IN_FLIGHT  (5)
 
-#define LWIP_ALTCP               1
-#define LWIP_ALTCP_TLS           1
-#define LWIP_ALTCP_TLS_MBEDTLS   1
-
-#define LWIP_DEBUG 1
-#define ALTCP_MBEDTLS_DEBUG  LWIP_DBG_ON
-
-/* set authmode */
-#define ALTCP_MBEDTLS_AUTHMODE MBEDTLS_SSL_VERIFY_REQUIRED
-#include <sys/time.h>
-
-// Liga o tempo recebido pelo SNTP ao relógio interno do RP2040
-#define SNTP_SET_SYSTEM_TIME(t) \
-    do { \
-        struct timeval tv = { .tv_sec = (t), .tv_usec = 0 }; \
-        settimeofday(&tv, NULL); \
-    } while(0)
-
+// Estas definições são parte da personalização do LWIP para atender às necessidades específicas de um projeto, 
+// permitindo ajustar o comportamento da pilha de rede e do cliente MQTT de acordo com os requisitos de memória, 
+// desempenho e funcionalidade do sistema embarcado.
 
 #endif /* __LWIPOPTS_H__ */
