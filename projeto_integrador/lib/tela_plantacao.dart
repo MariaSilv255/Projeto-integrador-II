@@ -353,8 +353,8 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                       String sensorInfo = 'Aguardando dados...';
                       if (sensorAgrupado.isNotEmpty) {
                         final temp = sensorAgrupado['temperatura'];
-                        final umi = sensorAgrupado['umiSolo'];
-                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Solo: ${umi ?? '--'}%';
+                        final umi = sensorAgrupado['umidade'] ?? sensorAgrupado['umiSolo'];
+                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Umidade: ${umi ?? '--'}%';
                       }
 
                       return GestureDetector(

@@ -17,10 +17,8 @@ def on_connect(client, userdata, flags, rc):
     
     with data_lock:
         if rc == 0:
-            print(f"DEBUG: MQTT Connected!")
             user_status[user_id] = "Conectado"
         else:
-            print(f"DEBUG: MQTT Connection FAILED for User {user_id} (rc={rc})")
             user_status[user_id] = f"Erro ({rc})"
     
     if rc == 0:
@@ -28,7 +26,6 @@ def on_connect(client, userdata, flags, rc):
 
 def on_disconnect(client, userdata, rc):
     user_id = userdata.get("user_id")
-    print(f"DEBUG: MQTT Disconnected for User {user_id} (rc={rc})")
     with data_lock:
         if rc != 0:
             user_status[user_id] = "Reconectando..."
@@ -39,12 +36,12 @@ def on_message(client, userdata, msg):
     user_id = userdata.get("user_id")
     
     try:
-        payload_str = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
+        payload_raw = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
         
         try:
-            data = json.loads(payload_str)
+            data = json.loads(payload_raw)
         except:
-            data = payload_str
+            data = payload_raw
         
         with data_lock:
             if user_id not in latest_sensor_data:
@@ -55,11 +52,9 @@ def on_message(client, userdata, msg):
                 "timestamp": time.time()
             }
     except Exception as e:
-        print(f"DEBUG: Msg error: {e}")
+        print(f"DEBUG: Msg error on {msg.topic}: {e}")
 
 def connect_user(user_id: int, host: str, port: int, username: str = None, password: str = None):
-    print(f"DEBUG: Connecting User {user_id} to {host}")
-    
     disconnect_user(user_id)
 
     client_id = f"BackendClient_{user_id}_{int(time.time())}"
@@ -86,7 +81,6 @@ def connect_user(user_id: int, host: str, port: int, username: str = None, passw
             user_clients[user_id] = client
         return True
     except Exception as e:
-        print(f"DEBUG: Connect error: {e}")
         with data_lock:
             user_status[user_id] = "Falha na conexão"
         return False
@@ -105,9 +99,7 @@ def disconnect_user(user_id: int):
         try:
             client.loop_stop()
             client.disconnect()
-            print(f"DEBUG: Fully stopped MQTT client for User {user_id}")
-        except Exception as e:
-            print(f"DEBUG: Error stopping client for User {user_id}: {e}")
+        except: pass
 
 def get_user_status(user_id: int):
     with data_lock:
@@ -121,21 +113,28 @@ def get_latest_data(user_id: int):
         
         for topic, info in raw_data.items():
             payload = info["payload"]
-            is_offline = (current_time - info["timestamp"]) > 120
+            is_offline = (current_time - info["timestamp"]) > 600
             
-            if topic.endswith("/status"):
-                if isinstance(payload, str) and payload.lower() == "offline":
+            # Detecção de status via tópico (Equipe3/dispositivos/ID/status)
+            if "/status" in topic:
+                status_val = str(payload).lower()
+                if "offline" in status_val:
                     is_offline = True
-                elif isinstance(payload, dict) and payload.get("status") == "offline":
-                    is_offline = True
+                elif "online" in status_val:
+                    is_offline = False
 
+            # Normalização de dados: Sempre retorna um objeto para o Flutter
             if isinstance(payload, dict):
                 p_copy = payload.copy()
                 p_copy["_offline"] = is_offline
                 p_copy["_last_seen"] = int(current_time - info["timestamp"])
                 processed_data[topic] = p_copy
             else:
-                processed_data[topic] = {"value": payload, "_offline": is_offline, "_last_seen": int(current_time - info["timestamp"])}
+                processed_data[topic] = {
+                    "value": str(payload), 
+                    "_offline": is_offline, 
+                    "_last_seen": int(current_time - info["timestamp"])
+                }
             
         return processed_data
 

@@ -95,7 +95,19 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final userId = widget.usuario['id'];
-      final String dispositivo = widget.plantacao['device_id'] ?? _dadosAtuais['dispositivo'] ?? widget.plantacao['descricao'];
+      
+      String? dispositivo = widget.plantacao['device_id'];
+      if (dispositivo == null || dispositivo == 'Desconhecido') {
+        dispositivo = _dadosAtuais['dispositivo']?.toString();
+      }
+      
+      if (dispositivo == null || dispositivo == 'Desconhecido') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erro: ID do hardware ainda não identificado.'), backgroundColor: Colors.orangeAccent),
+        );
+        return;
+      }
+                                 
       final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comando';
 
       final int solVal = (atuador == 'solenoide') ? valor : (_statusAtuadores['solenoide'] ?? 0);
@@ -191,13 +203,12 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
             const Text('Sensores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const SizedBox(height: 16),
             _buildSensorRow(),
-            const SizedBox(height: 24),
-            _buildExtraSensorRow(),
             const SizedBox(height: 40),
             const Text('Controle de Atuadores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const SizedBox(height: 8),
             const Text('Acione os componentes manualmente', style: TextStyle(fontSize: 14, color: Colors.grey)),
             const SizedBox(height: 24),
+            
             _buildControleSection('Solenoide', 'solenoide'),
             const SizedBox(height: 20),
             _buildControleSection('Bomba de Água', 'moduloRele'),
@@ -209,21 +220,13 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
   }
 
   Widget _buildSensorRow() {
+    final String umidVal = _dadosAtuais['umidade']?.toString() ?? _dadosAtuais['umiSolo']?.toString() ?? '--';
+
     return Row(
       children: [
         Expanded(child: _buildMiniCard('Temperatura', '${_dadosAtuais['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange)),
         const SizedBox(width: 16),
-        Expanded(child: _buildMiniCard('Umid. Solo', '${_dadosAtuais['umiSolo'] ?? '--'}%', Icons.water_drop, Colors.blue)),
-      ],
-    );
-  }
-
-  Widget _buildExtraSensorRow() {
-    return Row(
-      children: [
-        Expanded(child: _buildMiniCard('Umid. Ambiente', '${_dadosAtuais['umiAmbiente'] ?? '--'}%', Icons.cloud_outlined, Colors.cyan)),
-        const SizedBox(width: 16),
-        const Spacer(),
+        Expanded(child: _buildMiniCard('Umidade', umidVal.contains(':') ? umidVal.split(':').last.trim() : '$umidVal%', Icons.water_drop, Colors.blue)),
       ],
     );
   }

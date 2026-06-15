@@ -73,7 +73,7 @@ void vSensorTempTask(){
         start_signal(DHT11_PIN);
         if (read_dht11(DHT11_PIN, &temp_atual, &umidade_atual)) {
             printf("Sucesso! Temperatura: %.1f C, Umidade: %.1f %%\n", temp_atual, umidade_atual);
-            sprintf(stemp, "{\"temperatura\": %.1f, \"umidade\": %.1f}", temp_atual, umidade_atual);
+            sprintf(stemp, "{\"dispositivo\": \"placaBruno\",\"temperatura\": %.1f, \"umidade\": %.1f}", temp_atual, umidade_atual);
             cyw43_arch_lwip_begin();
             mqtt_comm_publish("Equipe3/plantacoes/jardim/sensores/dht22", stemp, strlen(stemp));
             cyw43_arch_lwip_end();
@@ -107,7 +107,7 @@ void vbuttonsTask(){
         uint adc_y_raw = adc_read();
         umidadeSoloValor = adc_y_raw / 4095.0f * 100.0f; // Convertendo para porcentagem
         
-        sprintf(umidadadeSolo, "Umidade: %.1f%%", umidadeSoloValor);
+        sprintf(umidadadeSolo, "%.1f%%", umidadeSoloValor);
         sprintf(soloDisplay, "US %.1f", umidadeSoloValor);
             
         if (xSemaphoreTake(xOLEDMutex, portMAX_DELAY) == pdTRUE) {

@@ -114,8 +114,7 @@ class _DashBoardState extends State<DashBoard> {
                   Map<String, dynamic> dadosAgrupados = {};
                   Map<String, dynamic> atuadoresAgrupados = {};
                   bool hardwareOffline = true;
-                  int lastSeenSeconds = 0;
-
+                  
                   _dadosMqtt.forEach((key, payload) {
                     final normalizedKey = key.toLowerCase();
                     if (payload is Map) {
@@ -126,24 +125,23 @@ class _DashBoardState extends State<DashBoard> {
                           dadosAgrupados.addAll(Map<String, dynamic>.from(payload));
                         }
                         if (payload['_offline'] == false) hardwareOffline = false;
-                        lastSeenSeconds = payload['_last_seen'] ?? 0;
                       }
                       
-                      // Verifica status explícito no tópico de dispositivos
                       final deviceStatusTopic = 'equipe3/dispositivos/${savedDeviceId.toLowerCase()}/status';
                       if (normalizedKey == deviceStatusTopic) {
                         if (payload['_offline'] == false) hardwareOffline = false;
-                        lastSeenSeconds = payload['_last_seen'] ?? 0;
-                        // Se o valor for explicitamente "offline", marca como offline
                         if (payload['value'] == 'offline') hardwareOffline = true;
                       }
                     }
                   });
 
-                  final dispositivo = plantacao['device_id'] ?? dadosAgrupados['dispositivo'] ?? 'Desconhecido';
+                  String? recoveredId = plantacao['device_id'];
+                  if (recoveredId == null || recoveredId == 'Desconhecido') {
+                    recoveredId = dadosAgrupados['dispositivo']?.toString();
+                  }
+
                   final temp = dadosAgrupados['temperatura'] ?? '--';
-                  final umiSolo = dadosAgrupados['umiSolo'] ?? '--';
-                  final umiAmb = dadosAgrupados['umiAmbiente'] ?? '--';
+                  final umi = dadosAgrupados['umidade'] ?? dadosAgrupados['umiSolo'] ?? '--';
                   final solenoideLigado = atuadoresAgrupados['solenoide'] == 1;
                   final bombaLigada = atuadoresAgrupados['moduloRele'] == 1;
                   
@@ -151,14 +149,12 @@ class _DashBoardState extends State<DashBoard> {
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TelaDetalhesPlantacao(plantacao: plantacao, usuario: widget.usuario))),
                     child: _buildPlantacaoCard(
                       plantacao['descricao'].toString(), 
-                      dispositivo.toString(), 
+                      recoveredId ?? 'Desconhecido', 
                       temp.toString(), 
-                      umiSolo.toString(), 
-                      umiAmb.toString(), 
+                      umi.toString(), 
                       solenoideLigado, 
                       bombaLigada,
-                      hardwareOffline,
-                      lastSeenSeconds
+                      hardwareOffline
                     ),
                   );
                 },
@@ -201,7 +197,7 @@ class _DashBoardState extends State<DashBoard> {
     );
   }
 
-  Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, String umidAmb, bool sol, bool bom, bool isOffline, int lastSeen) {
+  Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, bool sol, bool bom, bool isOffline) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -241,8 +237,7 @@ class _DashBoardState extends State<DashBoard> {
           Row(
             children: [
               _buildSensorInfo(Icons.thermostat, Colors.orange, 'Temp.', '$temp°C'),
-              _buildSensorInfo(Icons.water_drop, Colors.blue, 'Solo', '$umid%'),
-              _buildSensorInfo(Icons.cloud_outlined, Colors.cyan, 'Ar', '$umidAmb%'),
+              _buildSensorInfo(Icons.water_drop, Colors.blue, 'Umidade', umid.contains(':') ? umid.split(':').last.trim() : '$umid%'),
             ],
           ),
           const SizedBox(height: 16),

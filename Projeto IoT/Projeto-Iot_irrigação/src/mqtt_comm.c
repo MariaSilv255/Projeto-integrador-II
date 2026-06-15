@@ -6,7 +6,7 @@
 #include <string.h> // Útil se for manipular as strings recebidas
 #include "pico/cyw43_arch.h"
 
-#define MQTT_STATUS_TOPIC "Equipe3/dispositivos/raspberry-01/status"
+#define MQTT_STATUS_TOPIC "Equipe3/dispositivos/placaBruno/status"
 #define PAYLOAD_ONLINE    "online"
 #define PAYLOAD_OFFLINE   "offline"
 
