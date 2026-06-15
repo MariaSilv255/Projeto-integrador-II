@@ -17,7 +17,6 @@ async def lifespan(app: FastAPI):
     try:
         all_brokers = db.query(Broker).all()
         for b in all_brokers:
-            print(f"Heartbeat: Recovering MQTT connection for User {b.fk_id_usuario} on {b.host}")
             connect_user(
                 user_id=b.fk_id_usuario,
                 host=b.host,
@@ -25,8 +24,8 @@ async def lifespan(app: FastAPI):
                 username=b.username,
                 password=b.chave_usuario
             )
-    except Exception as e:
-        print(f"Heartbeat Error: Failed to recover connections: {e}")
+    except:
+        pass
     finally:
         db.close()
         

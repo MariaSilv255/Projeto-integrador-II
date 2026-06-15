@@ -14,14 +14,17 @@ data_lock = threading.Lock()
 def on_connect(client, userdata, flags, rc):
     user_id = userdata.get("user_id")
     topic = userdata.get("topic", "Equipe3/#")
+    
     with data_lock:
         if rc == 0:
-            print(f"DEBUG: MQTT Connected for User {user_id}!")
-            client.subscribe(topic)
+            print(f"DEBUG: MQTT Connected!")
             user_status[user_id] = "Conectado"
         else:
             print(f"DEBUG: MQTT Connection FAILED for User {user_id} (rc={rc})")
             user_status[user_id] = f"Erro ({rc})"
+    
+    if rc == 0:
+        client.subscribe(topic)
 
 def on_disconnect(client, userdata, rc):
     user_id = userdata.get("user_id")
@@ -35,24 +38,24 @@ def on_disconnect(client, userdata, rc):
 def on_message(client, userdata, msg):
     user_id = userdata.get("user_id")
     
-    with data_lock:
-        if user_id not in latest_sensor_data:
-            latest_sensor_data[user_id] = {}
+    try:
+        payload_str = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
         
         try:
-            payload_str = msg.payload.decode().replace('“', '"').replace('”', '"').replace('‘', "'").replace('’', "'")
-            
-            try:
-                data = json.loads(payload_str)
-            except:
-                data = payload_str
+            data = json.loads(payload_str)
+        except:
+            data = payload_str
+        
+        with data_lock:
+            if user_id not in latest_sensor_data:
+                latest_sensor_data[user_id] = {}
             
             latest_sensor_data[user_id][msg.topic] = {
                 "payload": data,
                 "timestamp": time.time()
             }
-        except Exception as e:
-            print(f"DEBUG: Msg error: {e}")
+    except Exception as e:
+        print(f"DEBUG: Msg error: {e}")
 
 def connect_user(user_id: int, host: str, port: int, username: str = None, password: str = None):
     print(f"DEBUG: Connecting User {user_id} to {host}")
@@ -72,16 +75,15 @@ def connect_user(user_id: int, host: str, port: int, username: str = None, passw
     if username:
         client.username_pw_set(username, password)
     
+    with data_lock:
+        user_status[user_id] = "Conectando..."
+    
     try:
-        with data_lock:
-            user_status[user_id] = "Conectando..."
-        
         client.connect_async(host, port, 60)
         client.loop_start()
         
         with data_lock:
             user_clients[user_id] = client
-            
         return True
     except Exception as e:
         print(f"DEBUG: Connect error: {e}")
@@ -90,19 +92,22 @@ def connect_user(user_id: int, host: str, port: int, username: str = None, passw
         return False
 
 def disconnect_user(user_id: int):
+    client = None
     with data_lock:
         if user_id in user_clients:
-            try:
-                client = user_clients.pop(user_id)
-                client.loop_stop()
-                client.disconnect()
-                print(f"DEBUG: Fully stopped and removed MQTT client for User {user_id}")
-            except Exception as e:
-                print(f"DEBUG: Error stopping client for User {user_id}: {e}")
+            client = user_clients.pop(user_id)
         
         user_status[user_id] = "Desconectado"
         if user_id in latest_sensor_data:
             latest_sensor_data.pop(user_id)
+
+    if client:
+        try:
+            client.loop_stop()
+            client.disconnect()
+            print(f"DEBUG: Fully stopped MQTT client for User {user_id}")
+        except Exception as e:
+            print(f"DEBUG: Error stopping client for User {user_id}: {e}")
 
 def get_user_status(user_id: int):
     with data_lock:
@@ -125,16 +130,17 @@ def get_latest_data(user_id: int):
                     is_offline = True
 
             if isinstance(payload, dict):
-                payload["_offline"] = is_offline
-                payload["_last_seen"] = int(current_time - info["timestamp"])
-            elif isinstance(payload, str):
-                payload = {"value": payload, "_offline": is_offline, "_last_seen": int(current_time - info["timestamp"])}
-            
-            processed_data[topic] = payload
+                p_copy = payload.copy()
+                p_copy["_offline"] = is_offline
+                p_copy["_last_seen"] = int(current_time - info["timestamp"])
+                processed_data[topic] = p_copy
+            else:
+                processed_data[topic] = {"value": payload, "_offline": is_offline, "_last_seen": int(current_time - info["timestamp"])}
             
         return processed_data
 
 def publish_message(user_id: int, topic: str, message: any):
+    client = None
     with data_lock:
         client = user_clients.get(user_id)
     
@@ -147,4 +153,8 @@ def publish_message(user_id: int, topic: str, message: any):
 
 def start_mqtt(): pass
 def stop_mqtt():
-    for uid in list(user_clients.keys()): disconnect_user(uid)
+    uids = []
+    with data_lock:
+        uids = list(user_clients.keys())
+    for uid in uids:
+        disconnect_user(uid)
