@@ -6,7 +6,9 @@
 #include <string.h> // Útil se for manipular as strings recebidas
 #include "pico/cyw43_arch.h"
 
-#define MQTT_STATUS_TOPIC "Equipe3/dispositivos/placaBruno/status"
+extern void mqtt_incoming_data_callback(const char *topic, const char *payload, size_t len);
+
+#define MQTT_STATUS_TOPIC "Equipe3/dispositivos/raspberry-01/status"
 #define PAYLOAD_ONLINE    "online"
 #define PAYLOAD_OFFLINE   "offline"
 
@@ -25,14 +27,10 @@ static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t f
     // Usamos %.*s para imprimir com segurança, pois o payload pode não ter o '\0' no final
     printf("Conteúdo da mensagem: %.*s\n", len, (const char *)data);
     
-    // Exemplo: se quiser acender um LED baseado no texto recebido
-    /*if (strncmp((const char *)data, "1", len) == 0) {
-        //gpio_put(12, 1); //trocar por um led da matriz 
-        printf("Comando LIGAR executado!\n");
-    } else if (strncmp((const char *)data, "DESLIGAR", len) == 0) {
-        //gpio_put(12, 0); //trocar por um led da matriz 
-        printf("Comando DESLIGAR executado!\n");
-    }*/
+    // Passa o tópico salvo no callback anterior (string_topico_atual) 
+    // e o payload recebido agora para a fila do FreeRTOS.
+    mqtt_incoming_data_callback(string_topico_atual, (const char *)data, len);
+    // ====================================================================
 
     // A flag MQTT_DATA_FLAG_LAST indica se este é o último pedaço da mensagem
     if (flags & MQTT_DATA_FLAG_LAST) {
@@ -79,7 +77,8 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
         if (err != ERR_OK) {
             printf("Erro ao iniciar a publicação do status online: %d\n", err);
         }
-        //mqtt_comm_subscribe("meu/dispositivo/comandos", 0);
+        mqtt_comm_subscribe("Equipe3/plantacoes/jardim/atuadores/solenoide", 0);
+        mqtt_comm_subscribe("Equipe3/plantacoes/jardim/atuadores/bomba", 0);
     } else {
         printf("Falha ao conectar ao broker, código: %d\n", status);
     }
