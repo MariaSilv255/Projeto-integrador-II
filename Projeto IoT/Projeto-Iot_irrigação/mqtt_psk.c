@@ -109,7 +109,7 @@ void vbuttonsTask(){
         uint adc_y_raw = adc_read();
         umidadeSoloValor = adc_y_raw / 4095.0f * 100.0f; // Convertendo para porcentagem
         
-        sprintf(umidadadeSolo, "Umidade: %.1f%%", umidadeSoloValor);
+        sprintf(umidadadeSolo, "%.1f%%", umidadeSoloValor);
         sprintf(soloDisplay, "US %.1f", umidadeSoloValor);
             
         if (xSemaphoreTake(xOLEDMutex, portMAX_DELAY) == pdTRUE) {
