@@ -43,8 +43,11 @@ add_executable(mqtt_psk
     inc/ssd1306_i2c.c
     src/mqtt_comm.c
     src/wifi_conn.c
-    dht/dht.c)
+    dht/dht.c
+    matriz/matriz.c
+    )
 
+pico_generate_pio_header(mqtt_psk ${CMAKE_CURRENT_LIST_DIR}/matriz/ws2818b.pio)
 pico_set_program_name(mqtt_psk "mqtt_psk")
 pico_set_program_version(mqtt_psk "0.1")
 
@@ -71,6 +74,7 @@ target_link_libraries(mqtt_psk
         pico_lwip_mqtt
         pico_lwip
         pico_cyw43_driver
+        hardware_pio
         )
 
 pico_add_extra_outputs(mqtt_psk)
