@@ -123,6 +123,9 @@ class _DashBoardState extends State<DashBoard> {
                           atuadoresAgrupados.addAll(Map<String, dynamic>.from(payload));
                         } else {
                           dadosAgrupados.addAll(Map<String, dynamic>.from(payload));
+                          if (payload.containsKey('value') && normalizedKey.contains('higrometro')) {
+                             dadosAgrupados['umidade_final'] = payload['value'];
+                          }
                         }
                         if (payload['_offline'] == false) hardwareOffline = false;
                       }
@@ -135,13 +138,8 @@ class _DashBoardState extends State<DashBoard> {
                     }
                   });
 
-                  String? recoveredId = plantacao['device_id'];
-                  if (recoveredId == null || recoveredId == 'Desconhecido') {
-                    recoveredId = dadosAgrupados['dispositivo']?.toString();
-                  }
-
                   final temp = dadosAgrupados['temperatura'] ?? '--';
-                  final umi = dadosAgrupados['umidade'] ?? dadosAgrupados['umiSolo'] ?? '--';
+                  final umi = dadosAgrupados['umidade_final'] ?? dadosAgrupados['umidade'] ?? dadosAgrupados['umiSolo'] ?? '--';
                   final solenoideLigado = atuadoresAgrupados['solenoide'] == 1;
                   final bombaLigada = atuadoresAgrupados['moduloRele'] == 1;
                   
@@ -149,7 +147,7 @@ class _DashBoardState extends State<DashBoard> {
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TelaDetalhesPlantacao(plantacao: plantacao, usuario: widget.usuario))),
                     child: _buildPlantacaoCard(
                       plantacao['descricao'].toString(), 
-                      recoveredId ?? 'Desconhecido', 
+                      savedDeviceId, 
                       temp.toString(), 
                       umi.toString(), 
                       solenoideLigado, 
@@ -198,6 +196,11 @@ class _DashBoardState extends State<DashBoard> {
   }
 
   Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, bool sol, bool bom, bool isOffline) {
+    String formattedUmid = umid;
+    if (!umid.contains('%') && umid != '--') {
+      formattedUmid = '$umid%';
+    }
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -226,7 +229,7 @@ class _DashBoardState extends State<DashBoard> {
                     ),
                   ],
                 ),
-                Text('ID: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))
+                Text('Hardware: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))
               ])),
               const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFCBD5E1)),
             ],
@@ -237,7 +240,7 @@ class _DashBoardState extends State<DashBoard> {
           Row(
             children: [
               _buildSensorInfo(Icons.thermostat, Colors.orange, 'Temp.', '$temp°C'),
-              _buildSensorInfo(Icons.water_drop, Colors.blue, 'Umidade', umid.contains(':') ? umid.split(':').last.trim() : '$umid%'),
+              _buildSensorInfo(Icons.water_drop, Colors.blue, 'Umidade', formattedUmid),
             ],
           ),
           const SizedBox(height: 16),

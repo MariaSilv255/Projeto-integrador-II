@@ -107,23 +107,20 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
         );
         return;
       }
-                                 
-      final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comando';
+                                 final String subTopico = (atuador == 'solenoide') ? 'solenoide' : 'bomba';
+                                 final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comandos/$subTopico';
 
-      final int solVal = (atuador == 'solenoide') ? valor : (_statusAtuadores['solenoide'] ?? 0);
-      final int relVal = (atuador == 'moduloRele') ? valor : (_statusAtuadores['moduloRele'] ?? 0);
+                                 final response = await http.post(
+                                   Uri.parse('http://$host:8000/plantacoes/comando/$userId'),
+                                   headers: {'Content-Type': 'application/json'},
+                                   body: jsonEncode({
+                                     'topico': topicoComando,
+                                     'comando': {
+                                       atuador: valor,
+                                     },
+                                   }),
+                                 );
 
-      final response = await http.post(
-        Uri.parse('http://$host:8000/plantacoes/comando/$userId'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'topico': topicoComando,
-          'comando': {
-            'solenoide': solVal,
-            'moduloRele': relVal,
-          },
-        }),
-      );
 
       if (response.statusCode == 200) {
         if (!mounted) return;
