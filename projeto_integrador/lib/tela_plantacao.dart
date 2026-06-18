@@ -112,28 +112,37 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final userId = widget.usuario['id'];
-      final resp = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+      final resp = await http.get(Uri.parse('http://$host:8000/plantacoes/topicos-descobertos/$userId'));
       if (resp.statusCode == 200) {
-        Map<String, dynamic> data = jsonDecode(resp.body);
-        final Set<String> plantTopics = {};
-        final Set<String> foundDevices = {};
-        
-        data.forEach((key, value) {
-          final t = key.toLowerCase();
-          if (t.startsWith('equipe3/plantacoes/')) {
-            final parts = t.split('/');
-            if (parts.length >= 3) plantTopics.add('${parts[0]}/${parts[1]}/${parts[2]}');
+        final List<String> todos = List<String>.from(jsonDecode(resp.body));
+        final Set<String> baseTopics = {};
+        for (final t in todos) {
+          final topic = t.toLowerCase();
+          if (topic.startsWith('equipe3/plantacoes/')) {
+            final parts = topic.split('/');
+            if (parts.length >= 3) {
+              baseTopics.add('${parts[0]}/${parts[1]}/${parts[2]}');
+            }
           }
-          if (t.startsWith('equipe3/dispositivos/') && t.endsWith('/status')) {
-            final parts = t.split('/');
-            if (parts.length >= 3) foundDevices.add(parts[2]);
-          }
-        });
-        topicosDescobertos = plantTopics.toList();
-        devicesDescobertos = foundDevices.toList();
+        }
+        if (topicoSelecionado != null) baseTopics.add(topicoSelecionado);
+        topicosDescobertos = baseTopics.toList();
+
+        final respStatus = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+        if (respStatus.statusCode == 200) {
+          final Map<String, dynamic> mqttData = jsonDecode(respStatus.body);
+          final Set<String> foundDevices = {};
+          mqttData.forEach((key, value) {
+            if (key.toLowerCase().startsWith('equipe3/dispositivos/') && key.toLowerCase().endsWith('/status')) {
+              final parts = key.split('/');
+              if (parts.length >= 3) foundDevices.add(parts[2]);
+            }
+          });
+          devicesDescobertos = foundDevices.toList();
+        }
       }
     } catch (e) {
-      debugPrint('Erro buscar dados: $e');
+      debugPrint('Erro buscar topicos: $e');
     }
 
     if (!mounted) return;
@@ -147,22 +156,30 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(controller: descricaoController, decoration: const InputDecoration(labelText: 'Nome da Plantação')),
-              const SizedBox(height: 16),
-              const Text('Tópico da Plantação:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              TextField(
+                controller: descricaoController,
+                decoration: const InputDecoration(labelText: 'Nome da Plantação'),
+              ),
+              const SizedBox(height: 20),
+              const Text('Dispositivo/Tópico:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               DropdownButton<String>(
                 isExpanded: true,
                 value: topicoSelecionado,
-                items: topicosDescobertos.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 10)))).toList(),
+                items: topicosDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
                 onChanged: (val) => setDialogState(() => topicoSelecionado = val),
               ),
               const SizedBox(height: 16),
-              const Text('Hardware de Controle (ID):', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              const Text('Hardware (ID):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               DropdownButton<String>(
                 isExpanded: true,
                 value: deviceIdSelecionado,
                 hint: const Text('Escolha o hardware'),
-                items: devicesDescobertos.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                items: devicesDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
                 onChanged: (val) => setDialogState(() => deviceIdSelecionado = val),
               ),
             ],
@@ -171,9 +188,9 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (descricaoController.text.isNotEmpty && topicoSelecionado != null && deviceIdSelecionado != null) {
+                if (descricaoController.text.isNotEmpty && topicoSelecionado != null) {
                   Navigator.pop(context);
-                  await _atualizarPlantacao(item['id'], descricaoController.text, topicoSelecionado!, deviceIdSelecionado!);
+                  await _atualizarPlantacao(item['id'], descricaoController.text, topicoSelecionado!, deviceIdSelecionado ?? 'Desconhecido');
                 }
               },
               child: const Text('Salvar'),
@@ -200,7 +217,9 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
       );
       if (response.statusCode == 200) {
         _carregarDados();
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Plantação atualizada')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Plantação atualizada com sucesso')));
+        }
       }
     } catch (e) {
       debugPrint('Erro atualizar: $e');
@@ -217,28 +236,36 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
       final userId = widget.usuario['id'];
-      final resp = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+      final resp = await http.get(Uri.parse('http://$host:8000/plantacoes/topicos-descobertos/$userId'));
       if (resp.statusCode == 200) {
-        Map<String, dynamic> data = jsonDecode(resp.body);
-        final Set<String> plantTopics = {};
-        final Set<String> foundDevices = {};
-        
-        data.forEach((key, value) {
-          final t = key.toLowerCase();
-          if (t.startsWith('equipe3/plantacoes/')) {
-            final parts = t.split('/');
-            if (parts.length >= 3) plantTopics.add('${parts[0]}/${parts[1]}/${parts[2]}');
+        final List<String> todos = List<String>.from(jsonDecode(resp.body));
+        final Set<String> baseTopics = {};
+        for (final t in todos) {
+          final topic = t.toLowerCase();
+          if (topic.startsWith('equipe3/plantacoes/')) {
+            final parts = topic.split('/');
+            if (parts.length >= 3) {
+              baseTopics.add('${parts[0]}/${parts[1]}/${parts[2]}');
+            }
           }
-          if (t.startsWith('equipe3/dispositivos/') && t.endsWith('/status')) {
-            final parts = t.split('/');
-            if (parts.length >= 3) foundDevices.add(parts[2]);
-          }
-        });
-        topicosDescobertos = plantTopics.toList();
-        devicesDescobertos = foundDevices.toList();
+        }
+        topicosDescobertos = baseTopics.toList();
+
+        final respStatus = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+        if (respStatus.statusCode == 200) {
+          final Map<String, dynamic> mqttData = jsonDecode(respStatus.body);
+          final Set<String> foundDevices = {};
+          mqttData.forEach((key, value) {
+            if (key.toLowerCase().startsWith('equipe3/dispositivos/') && key.toLowerCase().endsWith('/status')) {
+              final parts = key.split('/');
+              if (parts.length >= 3) foundDevices.add(parts[2]);
+            }
+          });
+          devicesDescobertos = foundDevices.toList();
+        }
       }
     } catch (e) {
-      debugPrint('Erro busca: $e');
+      debugPrint('Erro buscar topicos: $e');
     }
 
     if (!mounted) return;
@@ -252,23 +279,31 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TextField(controller: descricaoController, decoration: const InputDecoration(labelText: 'Nome da Plantação')),
-              const SizedBox(height: 16),
-              const Text('Onde estão os sensores?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              TextField(
+                controller: descricaoController,
+                decoration: const InputDecoration(labelText: 'Nome da Plantação', hintText: 'Ex: Horta dos Fundos'),
+              ),
+              const SizedBox(height: 20),
+              const Text('Selecione o dispositivo:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
               DropdownButton<String>(
                 isExpanded: true,
+                hint: const Text('Escolha um tópico'),
                 value: topicoSelecionado,
-                hint: const Text('Escolha a plantação'),
-                items: topicosDescobertos.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 10)))).toList(),
+                items: topicosDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
                 onChanged: (val) => setDialogState(() => topicoSelecionado = val),
               ),
               const SizedBox(height: 16),
-              const Text('Qual hardware controla ela?', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              const Text('Hardware de Controle (ID):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               DropdownButton<String>(
                 isExpanded: true,
-                value: deviceIdSelecionado,
                 hint: const Text('Selecione o hardware'),
-                items: devicesDescobertos.map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
+                value: deviceIdSelecionado,
+                items: devicesDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
                 onChanged: (val) => setDialogState(() => deviceIdSelecionado = val),
               ),
             ],
@@ -277,12 +312,12 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
             ElevatedButton(
               onPressed: () async {
-                if (descricaoController.text.isNotEmpty && topicoSelecionado != null && deviceIdSelecionado != null) {
+                if (descricaoController.text.isNotEmpty && topicoSelecionado != null) {
                   Navigator.pop(context);
-                  await _salvarPlantacao(descricaoController.text, topicoSelecionado!, deviceIdSelecionado!);
+                  await _salvarPlantacao(descricaoController.text, topicoSelecionado!, deviceIdSelecionado ?? 'Desconhecido');
                 }
               },
-              child: const Text('Criar'),
+              child: const Text('Vincular'),
             ),
           ],
         ),
@@ -328,21 +363,41 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                     itemBuilder: (context, index) {
                       final item = _plantacoes[index];
                       final String topico = (item['topico'] ?? '').toString().toLowerCase();
-                      final String deviceId = (item['device_id'] ?? 'Desconhecido').toString();
+                      final String savedDeviceId = (item['device_id'] ?? 'Desconhecido').toString();
                       
                       Map<String, dynamic> sensorAgrupado = {};
+                      bool hardwareOffline = true;
+                      
                       _dadosTempoReal.forEach((key, payload) {
                         final normalizedKey = key.toLowerCase();
                         if ((normalizedKey == topico || normalizedKey.startsWith('$topico/')) && payload is Map) {
                           sensorAgrupado.addAll(Map<String, dynamic>.from(payload));
+                          if (payload.containsKey('value')) {
+                             sensorAgrupado['umidade_extra'] = payload['value'];
+                          }
+                          if (payload['_offline'] == false) hardwareOffline = false;
+                        }
+                        
+                        final deviceStatusTopic = 'equipe3/dispositivos/${savedDeviceId.toLowerCase()}/status';
+                        if (normalizedKey == deviceStatusTopic) {
+                          if (payload['_offline'] == false) hardwareOffline = false;
+                          if (payload['value'] == 'offline') hardwareOffline = true;
                         }
                       });
                       
+                      final String dispExibicao = savedDeviceId;
+
                       String sensorInfo = 'Aguardando dados...';
                       if (sensorAgrupado.isNotEmpty) {
                         final temp = sensorAgrupado['temperatura'];
-                        final umi = sensorAgrupado['umidade'] ?? sensorAgrupado['umiSolo'];
-                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Umidade: ${umi ?? '--'}%';
+                        final umi = sensorAgrupado['umidade_extra'] ?? sensorAgrupado['umidade'] ?? sensorAgrupado['umiSolo'];
+                        
+                        String finalUmi = umi.toString();
+                        if (!finalUmi.contains('%') && finalUmi != 'null' && finalUmi != '--') {
+                          finalUmi = '$finalUmi%';
+                        }
+                        
+                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Umidade: ${finalUmi == 'null' ? '--' : finalUmi}';
                       }
 
                       return GestureDetector(
@@ -355,25 +410,48 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                             padding: const EdgeInsets.all(16),
                             child: Row(
                               children: [
-                                Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: _primaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.eco, color: _primaryGreen, size: 28)),
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: (hardwareOffline ? Colors.redAccent : _primaryGreen).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                                  child: Icon(Icons.eco, color: hardwareOffline ? Colors.redAccent : _primaryGreen, size: 28),
+                                ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(item['descricao'] ?? 'Sem nome', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B))),
+                                      Row(
+                                        children: [
+                                          Text(item['descricao'] ?? 'Sem nome', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B))),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: (hardwareOffline ? Colors.redAccent : Colors.green).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                                            child: Text(hardwareOffline ? 'OFFLINE' : 'ONLINE', style: TextStyle(color: hardwareOffline ? Colors.redAccent : Colors.green, fontSize: 8, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('Hardware: $deviceId', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('Hardware: $dispExibicao', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       const SizedBox(height: 8),
-                                      Row(children: [const Icon(Icons.sensors, size: 14, color: _primaryGreen), const SizedBox(width: 6), Text(sensorInfo, style: const TextStyle(color: _primaryGreen, fontWeight: FontWeight.bold, fontSize: 13))]),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.sensors, size: 14, color: _primaryGreen),
+                                          const SizedBox(width: 6),
+                                          Text(sensorInfo, style: const TextStyle(color: _primaryGreen, fontWeight: FontWeight.bold, fontSize: 13)),
+                                        ],
+                                      ),
                                     ],
                                   ),
                                 ),
                                 PopupMenuButton<String>(
                                   icon: const Icon(Icons.settings, color: Color(0xFF94A3B8), size: 22),
                                   onSelected: (val) {
-                                    if (val == 'edit') _abrirDialogoEdicao(item);
-                                    else if (val == 'delete') _deletarPlantacao(item['id'], item['descricao']);
+                                    if (val == 'edit') {
+                                      _abrirDialogoEdicao(item);
+                                    } else if (val == 'delete') {
+                                      _deletarPlantacao(item['id'], item['descricao']);
+                                    }
                                   },
                                   itemBuilder: (context) => [
                                     const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Editar')])),

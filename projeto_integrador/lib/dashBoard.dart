@@ -111,7 +111,7 @@ class _DashBoardState extends State<DashBoard> {
                   final String baseTopic = (plantacao['topico'] ?? '').toString().toLowerCase();
                   final String savedDeviceId = (plantacao['device_id'] ?? 'Desconhecido').toString();
                   
-                  Map<String, dynamic> dadosAgrupados = {};
+                  Map<String, Map<String, dynamic>> sensoresEncontrados = {};
                   Map<String, dynamic> atuadoresAgrupados = {};
                   bool hardwareOffline = true;
                   
@@ -121,11 +121,10 @@ class _DashBoardState extends State<DashBoard> {
                       if (normalizedKey == baseTopic || normalizedKey.startsWith('$baseTopic/')) {
                         if (normalizedKey.contains('/atuadores/')) {
                           atuadoresAgrupados.addAll(Map<String, dynamic>.from(payload));
+                        } else if (normalizedKey.contains('/sensores/')) {
+                          sensoresEncontrados[key] = Map<String, dynamic>.from(payload);
                         } else {
-                          dadosAgrupados.addAll(Map<String, dynamic>.from(payload));
-                          if (payload.containsKey('value') && normalizedKey.contains('higrometro')) {
-                             dadosAgrupados['umidade_final'] = payload['value'];
-                          }
+                          sensoresEncontrados[key] = Map<String, dynamic>.from(payload);
                         }
                         if (payload['_offline'] == false) hardwareOffline = false;
                       }
@@ -138,18 +137,22 @@ class _DashBoardState extends State<DashBoard> {
                     }
                   });
 
-                  final temp = dadosAgrupados['temperatura'] ?? '--';
-                  final umi = dadosAgrupados['umidade_final'] ?? dadosAgrupados['umidade'] ?? dadosAgrupados['umiSolo'] ?? '--';
+                  String? recoveredId = plantacao['device_id'];
+                  if (recoveredId == null || recoveredId == 'Desconhecido') {
+                    sensoresEncontrados.values.forEach((val) {
+                      if (val.containsKey('dispositivo')) recoveredId = val['dispositivo'].toString();
+                    });
+                  }
+
                   final solenoideLigado = atuadoresAgrupados['solenoide'] == 1;
-                  final bombaLigada = atuadoresAgrupados['moduloRele'] == 1;
+                  final bombaLigada = atuadoresAgrupados['bomba'] == 1;
                   
                   return GestureDetector(
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => TelaDetalhesPlantacao(plantacao: plantacao, usuario: widget.usuario))),
                     child: _buildPlantacaoCard(
                       plantacao['descricao'].toString(), 
-                      savedDeviceId, 
-                      temp.toString(), 
-                      umi.toString(), 
+                      recoveredId ?? 'Desconhecido', 
+                      sensoresEncontrados,
                       solenoideLigado, 
                       bombaLigada,
                       hardwareOffline
@@ -175,7 +178,6 @@ class _DashBoardState extends State<DashBoard> {
           Icon(Icons.eco_outlined, size: 48, color: Color(0xFFCBD5E1)),
           SizedBox(height: 16),
           Text('Nenhuma plantação cadastrada.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF64748B))),
-          Text('Vá na aba "Plantação" para adicionar.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
         ],
       ),
     );
@@ -189,18 +191,13 @@ class _DashBoardState extends State<DashBoard> {
         children: [
           Icon(Icons.info_outline, color: _primaryGreen),
           SizedBox(width: 12),
-          Expanded(child: Text('Clique em um card acima para acessar detalhes e controle manual.', style: TextStyle(fontSize: 13, color: _primaryGreen, fontWeight: FontWeight.w500))),
+          Expanded(child: Text('Clique em um card acima para acessar detalhes.', style: TextStyle(fontSize: 13, color: _primaryGreen, fontWeight: FontWeight.w500))),
         ],
       ),
     );
   }
 
-  Widget _buildPlantacaoCard(String nome, String disp, String temp, String umid, bool sol, bool bom, bool isOffline) {
-    String formattedUmid = umid;
-    if (!umid.contains('%') && umid != '--') {
-      formattedUmid = '$umid%';
-    }
-
+  Widget _buildPlantacaoCard(String nome, String disp, Map<String, Map<String, dynamic>> sensores, bool sol, bool bom, bool isOffline) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
@@ -229,48 +226,67 @@ class _DashBoardState extends State<DashBoard> {
                     ),
                   ],
                 ),
-                Text('Hardware: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))
+                Text('ID: $disp', style: const TextStyle(fontSize: 11, color: Colors.grey))
               ])),
               const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFCBD5E1)),
             ],
           ),
           const SizedBox(height: 16),
           const Divider(color: Color(0xFFF1F5F9), height: 1),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildSensorInfo(Icons.thermostat, Colors.orange, 'Temp.', '$temp°C'),
-              _buildSensorInfo(Icons.water_drop, Colors.blue, 'Umidade', formattedUmid),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          
+          if (sensores.isEmpty)
+             const Text('Aguardando sensores...', style: TextStyle(fontSize: 12, color: Colors.grey))
+          else
+            Column(
+              children: sensores.entries.map((e) {
+                final String sensorName = e.key.split('/').last.toUpperCase();
+                final temp = e.value['temperatura'];
+                final umid = e.value['umidade'] ?? e.value['umiSolo'];
+                final valRaw = e.value['value']?.toString() ?? '';
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    children: [
+                      Text('$sensorName:', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _primaryGreen)),
+                      const SizedBox(width: 8),
+                      if (temp != null) _buildSensorSmallItem(Icons.thermostat, Colors.orange, '$temp°C'),
+                      if (umid != null) ...[
+                        const SizedBox(width: 8),
+                        _buildSensorSmallItem(Icons.water_drop, Colors.blue, umid.toString().contains(':') ? umid.split(':').last.trim() : '$umid%'),
+                      ],
+                      if (valRaw.isNotEmpty && temp == null && umid == null)
+                        Text(valRaw.contains(':') ? valRaw.split(':').last.trim() : valRaw, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          
+          const SizedBox(height: 8),
           Row(children: [_buildBadge('Solenoide', sol, isOffline), const SizedBox(width: 8), _buildBadge('Bomba', bom, isOffline)]),
         ],
       ),
     );
   }
 
-  Widget _buildSensorInfo(IconData icon, Color color, String label, String val) {
-    return Expanded(child: Row(children: [Icon(icon, color: color, size: 16), const SizedBox(width: 4), Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)), Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)))])]));
+  Widget _buildSensorSmallItem(IconData icon, Color color, String val) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 12),
+        const SizedBox(width: 4),
+        Text(val, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
+      ],
+    );
   }
 
   Widget _buildBadge(String label, bool isOn, bool isOffline) {
     final color = isOffline ? Colors.grey : (isOn ? Colors.green : Colors.grey);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.withValues(alpha: 0.9))),
-        ],
-      ),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: color.withValues(alpha: 0.3))),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [Container(width: 6, height: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)), const SizedBox(width: 6), Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color.withValues(alpha: 0.9)))]),
     );
   }
 }

@@ -52,7 +52,7 @@ def on_message(client, userdata, msg):
                 "timestamp": time.time()
             }
     except Exception as e:
-        print(f"DEBUG: Msg error on {msg.topic}: {e}")
+        pass
 
 def connect_user(user_id: int, host: str, port: int, username: str = None, password: str = None):
     disconnect_user(user_id)
@@ -81,6 +81,7 @@ def connect_user(user_id: int, host: str, port: int, username: str = None, passw
             user_clients[user_id] = client
         return True
     except Exception as e:
+        pass
         with data_lock:
             user_status[user_id] = "Falha na conexão"
         return False
@@ -115,15 +116,11 @@ def get_latest_data(user_id: int):
             payload = info["payload"]
             is_offline = (current_time - info["timestamp"]) > 600
             
-            # Detecção de status via tópico (Equipe3/dispositivos/ID/status)
             if "/status" in topic:
                 status_val = str(payload).lower()
-                if "offline" in status_val:
-                    is_offline = True
-                elif "online" in status_val:
-                    is_offline = False
+                if "offline" in status_val: is_offline = True
+                elif "online" in status_val: is_offline = False
 
-            # Normalização de dados: Sempre retorna um objeto para o Flutter
             if isinstance(payload, dict):
                 p_copy = payload.copy()
                 p_copy["_offline"] = is_offline
@@ -148,7 +145,9 @@ def publish_message(user_id: int, topic: str, message: any):
         payload = json.dumps(message) if isinstance(message, dict) else str(message)
         result = client.publish(topic, payload)
         return result.rc == mqtt.MQTT_ERR_SUCCESS
-    except: return False
+    except Exception as e:
+        pass
+        return False
 
 def start_mqtt(): pass
 def stop_mqtt():
