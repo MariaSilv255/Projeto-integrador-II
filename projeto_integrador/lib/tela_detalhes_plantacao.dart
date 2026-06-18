@@ -15,7 +15,7 @@ class TelaDetalhesPlantacao extends StatefulWidget {
 
 class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
   static const Color _primaryGreen = Color(0xFF2F6B4F);
-  final Map<String, dynamic> _dadosAtuais = {};
+  final Map<String, dynamic> _sensoresIndividuais = {};
   final Map<String, dynamic> _statusAtuadores = {};
   bool _isHardwareOffline = true;
   Timer? _timer;
@@ -47,9 +47,8 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
             final String baseTopic = (widget.plantacao['topico'] ?? '').toString().toLowerCase();
             final String savedDeviceId = (widget.plantacao['device_id'] ?? 'Desconhecido').toString();
             
-            _dadosAtuais.clear();
+            _sensoresIndividuais.clear();
             _statusAtuadores.clear();
-            String lastSensorName = 'Desconhecido';
             bool foundOnlineSignal = false;
 
             todosDados.forEach((key, payload) {
@@ -57,12 +56,11 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
               if (payload is Map) {
                 if (normalizedKey == baseTopic || normalizedKey.startsWith('$baseTopic/')) {
                   if (normalizedKey.contains('/sensores/')) {
-                    _dadosAtuais.addAll(Map<String, dynamic>.from(payload));
-                    lastSensorName = key.split('/').last;
+                    _sensoresIndividuais[key] = payload;
                   } else if (normalizedKey.contains('/atuadores/')) {
                     _statusAtuadores.addAll(Map<String, dynamic>.from(payload));
                   } else {
-                    _dadosAtuais.addAll(Map<String, dynamic>.from(payload));
+                    _sensoresIndividuais[key] = payload;
                   }
                   if (payload['_offline'] == false) foundOnlineSignal = true;
                 }
@@ -75,7 +73,6 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
               }
             });
             _isHardwareOffline = !foundOnlineSignal;
-            _dadosAtuais['nome_sensor_UI'] = lastSensorName;
           });
         }
       }
@@ -98,30 +95,32 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
       
       String? dispositivo = widget.plantacao['device_id'];
       if (dispositivo == null || dispositivo == 'Desconhecido') {
-        dispositivo = _dadosAtuais['dispositivo']?.toString();
+        _sensoresIndividuais.forEach((key, val) {
+          if (val is Map && val.containsKey('dispositivo')) {
+            dispositivo = val['dispositivo'].toString();
+          }
+        });
       }
       
       if (dispositivo == null || dispositivo == 'Desconhecido') {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erro: ID do hardware ainda não identificado.'), backgroundColor: Colors.orangeAccent),
+          const SnackBar(content: Text('ID do hardware não identificado.'), backgroundColor: Colors.orangeAccent),
         );
         return;
       }
                                  
-      final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comando';
+      // O atuador já corresponde ao sub-tópico correto (ex: 'bomba' ou 'solenoide')
+      final String subTopico = atuador;
+      
+      final String topicoComando = 'Equipe3/dispositivos/$dispositivo/comandos/$subTopico';
 
-      final int solVal = (atuador == 'solenoide') ? valor : (_statusAtuadores['solenoide'] ?? 0);
-      final int relVal = (atuador == 'moduloRele') ? valor : (_statusAtuadores['moduloRele'] ?? 0);
-
+      // Envia apenas o estado (valor numérico) para aquele tópico específico
       final response = await http.post(
         Uri.parse('http://$host:8000/plantacoes/comando/$userId'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'topico': topicoComando,
-          'comando': {
-            'solenoide': solVal,
-            'moduloRele': relVal,
-          },
+          'comando': {atuador: valor},
         }),
       );
 
@@ -196,13 +195,18 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
                 padding: const EdgeInsets.all(12),
                 width: double.infinity,
                 decoration: BoxDecoration(color: Colors.redAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.redAccent.withValues(alpha: 0.2))),
-                child: const Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20), SizedBox(width: 12), Expanded(child: Text('Hardware desconectado. Os dados podem estar desatualizados e os comandos não funcionarão.', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)))]),
+                child: const Row(children: [Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 20), SizedBox(width: 12), Expanded(child: Text('Hardware desconectado.', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.w600)))]),
               ),
               const SizedBox(height: 24),
             ],
-            const Text('Sensores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
+            const Text('Sensores por Tópico', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const SizedBox(height: 16),
-            _buildSensorRow(),
+            
+            if (_sensoresIndividuais.isEmpty)
+              const Center(child: Text('Aguardando sensores...', style: TextStyle(color: Colors.grey)))
+            else
+              ..._sensoresIndividuais.entries.map((entry) => _buildSensorCard(entry.key, entry.value)).toList(),
+
             const SizedBox(height: 40),
             const Text('Controle de Atuadores', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF1E293B))),
             const SizedBox(height: 8),
@@ -211,7 +215,7 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
             
             _buildControleSection('Solenoide', 'solenoide'),
             const SizedBox(height: 20),
-            _buildControleSection('Bomba de Água', 'moduloRele'),
+            _buildControleSection('Bomba de Água', 'bomba'),
             const SizedBox(height: 40),
           ],
         ),
@@ -219,33 +223,65 @@ class _TelaDetalhesPlantacaoState extends State<TelaDetalhesPlantacao> {
     );
   }
 
-  Widget _buildSensorRow() {
-    final String umidVal = _dadosAtuais['umidade']?.toString() ?? _dadosAtuais['umiSolo']?.toString() ?? '--';
+  Widget _buildSensorCard(String topico, dynamic dados) {
+    final String nomeSensor = topico.split('/').last.toUpperCase();
+    final temp = dados['temperatura'];
+    final umid = dados['umidade'] ?? dados['umiSolo'];
+    final String valRaw = dados['value']?.toString() ?? '';
 
-    return Row(
-      children: [
-        Expanded(child: _buildMiniCard('Temperatura', '${_dadosAtuais['temperatura'] ?? '--'}°C', Icons.thermostat, Colors.orange)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildMiniCard('Umidade', umidVal.contains(':') ? umidVal.split(':').last.trim() : '$umidVal%', Icons.water_drop, Colors.blue)),
-      ],
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.sensors, color: _primaryGreen, size: 18),
+              const SizedBox(width: 8),
+              Text(nomeSensor, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: _primaryGreen)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (valRaw.isNotEmpty && temp == null && umid == null)
+            Text(valRaw.contains(':') ? valRaw.split(':').last.trim() : valRaw, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)))
+          else
+            Row(
+              children: [
+                if (temp != null)
+                  Expanded(child: _buildSensorItem(Icons.thermostat, Colors.orange, 'Temp.', '$temp°C')),
+                if (umid != null)
+                  Expanded(child: _buildSensorItem(Icons.water_drop, Colors.blue, 'Umidade', umid.toString().contains(':') ? umid.split(':').last.trim() : '$umid%')),
+              ],
+            ),
+        ],
+      ),
     );
   }
 
-  Widget _buildMiniCard(String label, String valor, IconData icon, Color color) {
-    final String origemSensor = _dadosAtuais['nome_sensor_UI'] ?? 'Desconhecido';
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 20)]),
-      child: Column(
-        children: [
-          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle), child: Icon(icon, color: color, size: 22)),
-          const SizedBox(height: 12),
-          Text(valor, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 4),
-          Text(origemSensor, style: const TextStyle(fontSize: 9, color: Color(0xFFCBD5E1), fontWeight: FontWeight.w600)),
-        ],
-      ),
+  Widget _buildSensorItem(IconData icon, Color color, String label, String val) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.1), shape: BoxShape.circle),
+          child: Icon(icon, color: color, size: 16),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+            Text(val, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: Color(0xFF1E293B))),
+          ],
+        ),
+      ],
     );
   }
 

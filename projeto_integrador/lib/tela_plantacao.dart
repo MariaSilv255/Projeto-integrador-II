@@ -105,7 +105,9 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
   Future<void> _abrirDialogoEdicao(Map<String, dynamic> item) async {
     final TextEditingController descricaoController = TextEditingController(text: item['descricao']);
     String? topicoSelecionado = item['topico'];
+    String? deviceIdSelecionado = item['device_id'];
     List<String> topicosDescobertos = [];
+    List<String> devicesDescobertos = [];
 
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
@@ -125,6 +127,19 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
         }
         if (topicoSelecionado != null) baseTopics.add(topicoSelecionado);
         topicosDescobertos = baseTopics.toList();
+
+        final respStatus = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+        if (respStatus.statusCode == 200) {
+          final Map<String, dynamic> mqttData = jsonDecode(respStatus.body);
+          final Set<String> foundDevices = {};
+          mqttData.forEach((key, value) {
+            if (key.toLowerCase().startsWith('equipe3/dispositivos/') && key.toLowerCase().endsWith('/status')) {
+              final parts = key.split('/');
+              if (parts.length >= 3) foundDevices.add(parts[2]);
+            }
+          });
+          devicesDescobertos = foundDevices.toList();
+        }
       }
     } catch (e) {
       debugPrint('Erro buscar topicos: $e');
@@ -156,6 +171,17 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                 }).toList(),
                 onChanged: (val) => setDialogState(() => topicoSelecionado = val),
               ),
+              const SizedBox(height: 16),
+              const Text('Hardware (ID):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: deviceIdSelecionado,
+                hint: const Text('Escolha o hardware'),
+                items: devicesDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
+                onChanged: (val) => setDialogState(() => deviceIdSelecionado = val),
+              ),
             ],
           ),
           actions: [
@@ -163,18 +189,8 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             ElevatedButton(
               onPressed: () async {
                 if (descricaoController.text.isNotEmpty && topicoSelecionado != null) {
-                  String deviceId = item['device_id'] ?? 'Desconhecido';
-                  final String base = topicoSelecionado!.toLowerCase();
-                  _dadosTempoReal.forEach((key, payload) {
-                    final k = key.toLowerCase();
-                    if ((k == base || k.startsWith('$base/')) && payload is Map) {
-                      if (payload.containsKey('dispositivo')) {
-                        deviceId = payload['dispositivo'].toString();
-                      }
-                    }
-                  });
                   Navigator.pop(context);
-                  await _atualizarPlantacao(item['id'], descricaoController.text, topicoSelecionado!, deviceId);
+                  await _atualizarPlantacao(item['id'], descricaoController.text, topicoSelecionado!, deviceIdSelecionado ?? 'Desconhecido');
                 }
               },
               child: const Text('Salvar'),
@@ -213,7 +229,9 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
   Future<void> _criarPlantacao() async {
     final TextEditingController descricaoController = TextEditingController();
     String? topicoSelecionado;
+    String? deviceIdSelecionado;
     List<String> topicosDescobertos = [];
+    List<String> devicesDescobertos = [];
 
     try {
       final String host = Platform.isAndroid ? '10.0.2.2' : 'localhost';
@@ -232,6 +250,19 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
           }
         }
         topicosDescobertos = baseTopics.toList();
+
+        final respStatus = await http.get(Uri.parse('http://$host:8000/plantacoes/dados-tempo-real/$userId'));
+        if (respStatus.statusCode == 200) {
+          final Map<String, dynamic> mqttData = jsonDecode(respStatus.body);
+          final Set<String> foundDevices = {};
+          mqttData.forEach((key, value) {
+            if (key.toLowerCase().startsWith('equipe3/dispositivos/') && key.toLowerCase().endsWith('/status')) {
+              final parts = key.split('/');
+              if (parts.length >= 3) foundDevices.add(parts[2]);
+            }
+          });
+          devicesDescobertos = foundDevices.toList();
+        }
       }
     } catch (e) {
       debugPrint('Erro buscar topicos: $e');
@@ -255,18 +286,26 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
               const SizedBox(height: 20),
               const Text('Selecione o dispositivo:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              if (topicosDescobertos.isEmpty)
-                const Text('Nenhum dispositivo detectado.', style: TextStyle(fontSize: 11, color: Colors.grey))
-              else
-                DropdownButton<String>(
-                  isExpanded: true,
-                  hint: const Text('Escolha um tópico'),
-                  value: topicoSelecionado,
-                  items: topicosDescobertos.map((String value) {
-                    return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
-                  }).toList(),
-                  onChanged: (val) => setDialogState(() => topicoSelecionado = val),
-                ),
+              DropdownButton<String>(
+                isExpanded: true,
+                hint: const Text('Escolha um tópico'),
+                value: topicoSelecionado,
+                items: topicosDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
+                onChanged: (val) => setDialogState(() => topicoSelecionado = val),
+              ),
+              const SizedBox(height: 16),
+              const Text('Hardware de Controle (ID):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              DropdownButton<String>(
+                isExpanded: true,
+                hint: const Text('Selecione o hardware'),
+                value: deviceIdSelecionado,
+                items: devicesDescobertos.map((String value) {
+                  return DropdownMenuItem<String>(value: value, child: Text(value, style: const TextStyle(fontSize: 12)));
+                }).toList(),
+                onChanged: (val) => setDialogState(() => deviceIdSelecionado = val),
+              ),
             ],
           ),
           actions: [
@@ -274,18 +313,8 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
             ElevatedButton(
               onPressed: () async {
                 if (descricaoController.text.isNotEmpty && topicoSelecionado != null) {
-                  String deviceId = 'Desconhecido';
-                  final String base = topicoSelecionado!.toLowerCase();
-                  _dadosTempoReal.forEach((key, payload) {
-                    final k = key.toLowerCase();
-                    if ((k == base || k.startsWith('$base/')) && payload is Map) {
-                      if (payload.containsKey('dispositivo')) {
-                        deviceId = payload['dispositivo'].toString();
-                      }
-                    }
-                  });
                   Navigator.pop(context);
-                  await _salvarPlantacao(descricaoController.text, topicoSelecionado!, deviceId);
+                  await _salvarPlantacao(descricaoController.text, topicoSelecionado!, deviceIdSelecionado ?? 'Desconhecido');
                 }
               },
               child: const Text('Vincular'),
@@ -334,27 +363,41 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                     itemBuilder: (context, index) {
                       final item = _plantacoes[index];
                       final String topico = (item['topico'] ?? '').toString().toLowerCase();
-                      String? deviceId = item['device_id'];
+                      final String savedDeviceId = (item['device_id'] ?? 'Desconhecido').toString();
                       
                       Map<String, dynamic> sensorAgrupado = {};
+                      bool hardwareOffline = true;
+                      
                       _dadosTempoReal.forEach((key, payload) {
                         final normalizedKey = key.toLowerCase();
                         if ((normalizedKey == topico || normalizedKey.startsWith('$topico/')) && payload is Map) {
                           sensorAgrupado.addAll(Map<String, dynamic>.from(payload));
+                          if (payload.containsKey('value')) {
+                             sensorAgrupado['umidade_extra'] = payload['value'];
+                          }
+                          if (payload['_offline'] == false) hardwareOffline = false;
+                        }
+                        
+                        final deviceStatusTopic = 'equipe3/dispositivos/${savedDeviceId.toLowerCase()}/status';
+                        if (normalizedKey == deviceStatusTopic) {
+                          if (payload['_offline'] == false) hardwareOffline = false;
+                          if (payload['value'] == 'offline') hardwareOffline = true;
                         }
                       });
                       
-                      if (deviceId == null || deviceId == 'Desconhecido') {
-                        deviceId = sensorAgrupado['dispositivo']?.toString();
-                      }
-                      
-                      final String dispExibicao = deviceId ?? 'Desconhecido';
+                      final String dispExibicao = savedDeviceId;
 
                       String sensorInfo = 'Aguardando dados...';
                       if (sensorAgrupado.isNotEmpty) {
                         final temp = sensorAgrupado['temperatura'];
-                        final umi = sensorAgrupado['umidade'] ?? sensorAgrupado['umiSolo'];
-                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Umidade: ${umi ?? '--'}%';
+                        final umi = sensorAgrupado['umidade_extra'] ?? sensorAgrupado['umidade'] ?? sensorAgrupado['umiSolo'];
+                        
+                        String finalUmi = umi.toString();
+                        if (!finalUmi.contains('%') && finalUmi != 'null' && finalUmi != '--') {
+                          finalUmi = '$finalUmi%';
+                        }
+                        
+                        sensorInfo = 'Temp: ${temp ?? '--'}°C | Umidade: ${finalUmi == 'null' ? '--' : finalUmi}';
                       }
 
                       return GestureDetector(
@@ -369,17 +412,27 @@ class _TelaPlantacaoState extends State<TelaPlantacao> {
                               children: [
                                 Container(
                                   padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: _primaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                                  child: const Icon(Icons.eco, color: _primaryGreen, size: 28),
+                                  decoration: BoxDecoration(color: (hardwareOffline ? Colors.redAccent : _primaryGreen).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                                  child: Icon(Icons.eco, color: hardwareOffline ? Colors.redAccent : _primaryGreen, size: 28),
                                 ),
                                 const SizedBox(width: 16),
                                 Expanded(
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(item['descricao'] ?? 'Sem nome', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B))),
+                                      Row(
+                                        children: [
+                                          Text(item['descricao'] ?? 'Sem nome', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B))),
+                                          const SizedBox(width: 8),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: (hardwareOffline ? Colors.redAccent : Colors.green).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
+                                            child: Text(hardwareOffline ? 'OFFLINE' : 'ONLINE', style: TextStyle(color: hardwareOffline ? Colors.redAccent : Colors.green, fontSize: 8, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
                                       const SizedBox(height: 2),
-                                      Text('ID: $dispExibicao', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('Hardware: $dispExibicao', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       const SizedBox(height: 8),
                                       Row(
                                         children: [
