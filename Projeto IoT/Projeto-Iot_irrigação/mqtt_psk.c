@@ -19,8 +19,8 @@
 #define I2C_SDA 14
 #define I2C_SCL 15
 #define DHT11_PIN 16
-#define SSID "BBJE"
-#define senha "AAaa1234@"
+#define SSID "S23 Bruno"
+#define senha "ABCFC1915"
 
 
 SemaphoreHandle_t xOLEDMutex;
@@ -186,26 +186,39 @@ void mqtt_incoming_data_callback(const char *topic, const char *payload, size_t 
     actuator_event_t ev;
     
     // Tratamento para o Tópico da Solenóide (Lado Esquerdo)
-    if (strstr(topic, "Equipe3/plantacoes/jardim/atuadores/solenoide") != NULL) {
+    if (strstr(topic, "Equipe3/dispositivos/raspberry-01/comandos/solenoide") != NULL) {
         ev.type = EVENT_MQTT_SOLENOIDE;
         // Parsing simples do JSON procurando o valor da chave "solenoide"
-        if (strstr(payload, "{“solenoide”: 1}") != NULL) {
+        if (strstr(payload, "{\"solenoide\": 1}") != NULL) {
+            printf("Payload recebido para Solenóide");
             ev.value = 1;
-        } else if (strstr(payload, "{“solenoide”: 0}") != NULL) {
+            cyw43_arch_lwip_begin();
+            mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/solenoide", "{\"solenoide\": 1}", strlen("{\"solenoide\": 1}"));
+            cyw43_arch_lwip_end();
+        } else if (strstr(payload, "{\"solenoide\": 0}") != NULL) {
             ev.value = 0;
+            cyw43_arch_lwip_begin();
+            mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/solenoide", "{\"solenoide\": 0}", strlen("{\"solenoide\": 0}"));
+            cyw43_arch_lwip_end();
         } else {
             return; // Payload inválido ignorado
         }
         xQueueSendFromISR(xActuatorQueue, &ev, NULL);
     } 
     // Tratamento para o Tópico da Bomba (Lado Direito)
-    else if (strstr(topic, "Equipe3/plantacoes/jardim/atuadores/bomba") != NULL) {
+    else if (strstr(topic, "Equipe3/dispositivos/raspberry-01/comandos/bomba") != NULL) {
         ev.type = EVENT_MQTT_BOMBA;
         // Parsing simples do JSON procurando o valor da chave "bomba"
-        if (strstr(payload, "{“bomba”: 1}") != NULL) {
+        if (strstr(payload, "{\"bomba\": 1}") != NULL) {
             ev.value = 1;
-        } else if (strstr(payload, "{“bomba”: 0}") != NULL) {
+            cyw43_arch_lwip_begin();
+            mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/bomba", "{\"bomba\": 1}", strlen("{\"bomba\": 1}"));
+            cyw43_arch_lwip_end();
+        } else if (strstr(payload, "{\"bomba\": 0}") != NULL) {
             ev.value = 0;
+            cyw43_arch_lwip_begin();
+            mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/bomba", "{\"bomba\": 0}", strlen("{\"bomba\": 0}"));
+            cyw43_arch_lwip_end();
         } else {
             return; // Payload inválido ignorado
         }
@@ -257,7 +270,7 @@ void vAtuadoresTask(void *pvParameters) {
                 case EVENT_BUTTON_A:
                     estado_esquerdo = !estado_esquerdo; // Inverte o estado atual (Toggle)
                     printf("Botão A: Solenóide (Esquerdo) alternado para %d\n", estado_esquerdo);
-                    sprintf(solenoideStatus, "{“solenoide”: %d}", estado_esquerdo);
+                    sprintf(solenoideStatus, "{\"solenoide\": %d}", estado_esquerdo);
                     cyw43_arch_lwip_begin();
                     mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/solenoide", solenoideStatus, strlen(solenoideStatus));
                     cyw43_arch_lwip_end();
@@ -266,7 +279,7 @@ void vAtuadoresTask(void *pvParameters) {
                 case EVENT_BUTTON_B:
                     estado_direito = !estado_direito; // Inverte o estado atual (Toggle)
                     printf("Botão B: Bomba (Direito) alternado para %d\n", estado_direito);
-                    sprintf(bombaStatus, "{“bomba”: %d}", estado_direito);
+                    sprintf(bombaStatus, "{\"bomba\": %d}", estado_direito);
                     cyw43_arch_lwip_begin();
                     mqtt_comm_publish("Equipe3/plantacoes/jardim/atuadores/bomba", bombaStatus, strlen(bombaStatus));
                     cyw43_arch_lwip_end();

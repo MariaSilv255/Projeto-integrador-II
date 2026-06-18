@@ -77,8 +77,9 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
         if (err != ERR_OK) {
             printf("Erro ao iniciar a publicação do status online: %d\n", err);
         }
-        mqtt_comm_subscribe("Equipe3/plantacoes/jardim/atuadores/solenoide", 0);
-        mqtt_comm_subscribe("Equipe3/plantacoes/jardim/atuadores/bomba", 0);
+        mqtt_comm_subscribe("Equipe3/dispositivos/raspberry-01/comandos/solenoide", 0);
+        mqtt_comm_subscribe("Equipe3/dispositivos/raspberry-01/comandos/bomba", 0);
+
     } else {
         printf("Falha ao conectar ao broker, código: %d\n", status);
     }
@@ -114,7 +115,7 @@ void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, 
         .client_id = client_id,  // ID do cliente
         .client_user = user,     // Usuário (opcional)
         .client_pass = pass,      // Senha (opcional)
-        .keep_alive = 60, // Broker vai esperar 60s antes de considerar o dispositivo morto
+        .keep_alive = 30, // Broker vai esperar 30s antes de considerar o dispositivo morto
         .will_topic = MQTT_STATUS_TOPIC, // Tópico para a mensagem de "last will"
         .will_msg = PAYLOAD_OFFLINE, // Mensagem que será publicada se o cliente
         .will_qos = 1, // QoS da mensagem de "last will"
